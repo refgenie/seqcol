@@ -1,0 +1,25 @@
+site_name: Bulker
+site_logo: img/bulker_logo_gray.svg
+site_url: http://bulker.databio.org/
+repo_url: http://github.com/databio/bulker
+pypi_name: bulker
+
+nav:
+  - Getting Started: 
+    - Introduction: README.md
+    - Motivation: motivation.md
+    - Install and configure: install.md
+  - How-to Guides:
+    - "Tutorial": tutorial.md
+    - Write a manifest: manifest.md
+  - Reference:
+    - Support: https://github.com/databio/bulker/issues
+    - Changelog: changelog.md
+
+theme: databio
+
+plugins:
+  - databio:
+      autodoc_build: "docs/autodoc_build"
+      no_top_level: true
+  - search
