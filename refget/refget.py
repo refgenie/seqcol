@@ -4,6 +4,7 @@ import redis
 import logging
 import pyfaidx
 
+from collections import OrderedDict
 from . import trunc512_digest
 from . import __version__
 
@@ -36,6 +37,7 @@ class RefDB(object):
         self.database = database
         self.checksum_function = checksum_function
 
+
     def refget(self, checksum, lookup_table=None, reclimit=None):
         """
         Recursive refget lookup implementation
@@ -52,15 +54,29 @@ class RefDB(object):
         except KeyError:
             return "Not found"
 
-        if (':' not in result) or (isinstance(reclimit, int) and reclimit == 1):
+        if (':' not in result):
             return result
         else:
             if isinstance(reclimit, int):
                 reclimit = reclimit - 1
-            return "\n".join(["\n".join(
-                [">" + seq.split(':')[0], self.refget(
-                    seq.split(':')[1], lookup_table)]) for seq in result.split(";")])
 
+            content = OrderedDict()
+            for unit in result.split(";"):
+                name, seq = unit.split(':')
+                if (isinstance(reclimit, int) and reclimit == 0):
+                    content[name] = seq
+                else:
+                    content[name] = self.refget(seq, lookup_table, reclimit)
+            return content
+
+
+    def fasta_fmt(self, content):
+        """
+        Given a content dict return by refget for a sequence collection,
+        convert it to a string that can be printed as a fasta file.
+        """
+        return "\n".join(["\n".join(
+            [">" + name, seq]) for name, seq in content.items()])
 
 
     def load_seq(self, seq, checksum_function=None):
@@ -71,6 +87,7 @@ class RefDB(object):
         _LOGGER.info("Loaded {}".format(checksum))
 
         return checksum
+
 
     def load_fasta(self, fa_file, checksum_function=None):
         """
@@ -90,4 +107,33 @@ class RefDB(object):
        
         return collection_checksum, content
 
+    def compare(self, checksumA, checksumB):
+        """
+        Given two checksums in the database, provide some information
+        about how they are related.
 
+        """
+        contents1 = self.refget(checksumA, reclimit=1)
+        contents2 = self.refget(checksumB, reclimit=1)
+
+        ainb = [x in contents2.values() for x in contents1.values()]
+        bina = [x in contents1.values() for x in contents2.values()]
+
+        if all(ainb):
+            if all(bina):
+                names_check = [x in contents2.keys() for x in contents1.keys()]
+                if all(names_check):
+                    res = "Sequence-level identical, order mismatch"
+                else:
+                    res = "Sequence-level identical, names mismatch"
+            else:
+                res = "A is a sequence-level subset of B"
+        elif any(ainb):
+            if all(bina):
+                res = "B is a sequence-level subset of A"
+            else:
+                res = "A and B share some sequences"
+        else:
+            res = "No sequences shared"
+
+        return res
