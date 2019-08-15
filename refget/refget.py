@@ -89,6 +89,19 @@ class RefDB(object):
         return checksum
 
 
+    def fasta_checksum(self, fa_file):
+        """
+        Just calculate checksum of fasta file without loading it.
+        """
+        fa_object = pyfaidx.Fasta(fa_file)
+        content_checksums = {}
+        for k in fa_object.keys():
+            content_checksums[k] = self.checksum_function(str(fa_object[k]))
+        collection_string = ";".join([":".join(i) for i in content_checksums.items()])
+        collection_checksum = self.load_seq(collection_string)
+        return collection_checksum, content_checksums
+
+
     def load_fasta(self, fa_file, checksum_function=None):
         """
         Calculates checksums and loads each sequence in a fasta file into the
@@ -98,18 +111,18 @@ class RefDB(object):
         if not checksum_function:
             checksum_function = self.checksum_function        
         fa_object = pyfaidx.Fasta(fa_file)
-        content = {}
+        content_checksums = {}
         for k in fa_object.keys():
-            content[k] = self.load_seq(str(fa_object[k]))
-            # content[k.encode()] = checksum_function(str(fa_object[k]).encode()).hexdigest().encode()
-        collection_string = ";".join([":".join(i) for i in content.items()])
+            content_checksums[k] = self.load_seq(str(fa_object[k]))
+        collection_string = ";".join([":".join(i) for i in content_checksums.items()])
         collection_checksum = self.load_seq(collection_string)
        
-        return collection_checksum, content
+        return collection_checksum, content_checksums
+
 
     def compare(self, checksumA, checksumB):
         """
-        Given two checksums in the database, provide some information
+        Given two collection checksums in the database, provide some information
         about how they are related.
 
         """
