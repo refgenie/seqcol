@@ -3,12 +3,20 @@
 import redis
 import logging
 import pyfaidx
+import pymongo
+pymongo.Connection = lambda host, port, **kwargs: pymongo.MongoClient(host=host, port=port)
+import mongodict
+
 
 from collections import OrderedDict
 from . import trunc512_digest
 from . import __version__
 
 _LOGGER = logging.getLogger(__name__)
+
+DELIM_LVL1 = u"\u00B7"
+DELIM_LVL2 = u"\u2016"
+DELIM_LVL3 = u"\u2980"
 
 class RedisDict(redis.Redis):
     """
@@ -26,6 +34,9 @@ class RedisDict(redis.Redis):
     
     def __setitem__(self, key, value):
         self.set(key, value)
+
+class MongoDict(mongodict.MongoDict):
+    pass
 
 
 class RefDB(object):
@@ -54,21 +65,33 @@ class RefDB(object):
         except KeyError:
             return "Not found"
 
-        if (':' not in result):
+        if (DELIM_LVL2 not in result):
+            # Base case
             return result
         else:
+            # Recursive case
             if isinstance(reclimit, int):
                 reclimit = reclimit - 1
 
             content = OrderedDict()
-            for unit in result.split(";"):
-                name, seq = unit.split(':')
+            for unit in result.split(DELIM_LVL3):
+                name, laseq = unit.split(DELIM_LVL2)
+                try:
+                    length, seq = laseq.split(DELIM_LVL1)
+                except ValueError:
+                    length = None
+                    seq = laseq
                 if (isinstance(reclimit, int) and reclimit == 0):
-                    content[name] = seq
+                    content[name] = {
+                        'length': length,
+                        'seq': seq,
+                        }
                 else:
-                    content[name] = self.refget(seq, lookup_table, reclimit)
+                    content[name] = {
+                        'length': length,
+                        'seq': self.refget(seq, lookup_table, reclimit)
+                        }
             return content
-
 
     def fasta_fmt(self, content):
         """
@@ -100,8 +123,14 @@ class RefDB(object):
         fa_object = parse_fasta(fa_file)
         content_checksums = {}
         for k in fa_object.keys():
-            content_checksums[k] = self.load_seq(str(fa_object[k]))
-        collection_string = ";".join([":".join(i) for i in content_checksums.items()])
+            seq = str(fa_object[k])
+            content_checksums[k] = {'length': len(seq), 'seq': self.load_seq(seq)}
+        # Produce a length-annotated seq
+        #collection_string = ";".join([":".join(i) for i in content_checksums.items()])
+        collection_string = DELIM_LVL3.join([("{}" + DELIM_LVL2 + "{}" + 
+                                DELIM_LVL1 + "{}").format(name, value["length"], value["seq"]) 
+                                for name, value in content_checksums.items()])
+        _LOGGER.info("collection_string: {}".format(collection_string))
         collection_checksum = self.load_seq(collection_string)
        
         return collection_checksum, content_checksums
@@ -119,6 +148,10 @@ class RefDB(object):
         ainb = [x in contents2.values() for x in contents1.values()]
         bina = [x in contents1.values() for x in contents2.values()]
 
+        ainb_length = [x['length'] for x in contents1.values()]
+        # [[name, val['length']] for name, val in content1.items()]
+
+
         if all(ainb):
             if all(bina):
                 names_check = [x in contents2.keys() for x in contents1.keys()]
@@ -135,6 +168,8 @@ class RefDB(object):
                 res = "A and B share some sequences"
         else:
             res = "No sequences shared"
+
+
 
         return res
 
