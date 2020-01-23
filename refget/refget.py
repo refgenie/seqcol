@@ -18,6 +18,11 @@ DELIM_LVL1 = u"\u00B7"
 DELIM_LVL2 = u"\u2016"
 DELIM_LVL3 = u"\u2980"
 
+# ASCII non-used characters
+DELIM_LVL1 = "\x1f" # chr(29); separating properties in items
+DELIM_LVL2 = "\x1e" # chr(30); separating name from properties
+DELIM_LVL3 = "\t" # chr(31); separating items in collections
+
 class RedisDict(redis.Redis):
     """
     Dict-like interface to a redis back-end
@@ -47,6 +52,7 @@ class RefDB(object):
         """
         self.database = database
         self.checksum_function = checksum_function
+        self.checksum_function_version = "trunc512:0.1"
 
 
     def refget(self, checksum, lookup_table=None, reclimit=None):
@@ -76,22 +82,94 @@ class RefDB(object):
             content = OrderedDict()
             for unit in result.split(DELIM_LVL3):
                 name, laseq = unit.split(DELIM_LVL2)
+                topology = None
                 try:
-                    length, seq = laseq.split(DELIM_LVL1)
+                    length, seq, toplogy = laseq.split(DELIM_LVL1)
+
                 except ValueError:
                     length = None
                     seq = laseq
+                    topology = None
                 if (isinstance(reclimit, int) and reclimit == 0):
                     content[name] = {
                         'length': length,
                         'seq': seq,
+                        'topology': topology
                         }
                 else:
                     content[name] = {
                         'length': length,
-                        'seq': self.refget(seq, lookup_table, reclimit)
+                        'seq': self.refget(seq, lookup_table, reclimit),
+                        'topology': topology
                         }
             return content
+
+
+
+    def build_metapack(self, seq=None, circular=None, length=None, load=False):
+        """
+        Given necessary information about a sequence, build a 'metapack',
+        metadata package.
+
+        This function will run the digest function and produce a dict with all
+        metadata about a sequence to make it ready for insertion into a
+        database.
+        """
+        if seq:
+            length = len(seq)
+            digest = self.checksum_function(seq)
+            checksum_function_version = self.checksum_function_version
+        else:
+            digest = None
+            checksum_function_version = None
+        if circular:
+            topology = "circular"
+        else:
+            topology = "linear"
+        if not length:
+            _LOGGER.error("You must specify at least a sequence length")
+        metapack = {'length': length,
+                    'digest': digest,
+                    'digest_function': checksum_function_version,
+                    'topology': topology}
+
+        if load and digest:
+            self.database[digest] = seq
+            _LOGGER.info("Loaded {}".format(digest))
+
+        return metapack
+
+
+    def colseq_from_seqdict(self, seqdict, load=False):
+        metapacks = {}
+        for name, seq in seqdict.items():
+            metapacks[name] = self.build_metapack(seq, load=load)
+        return self.colseq_from_metapacks(metapacks)
+
+
+    def colseq_from_metapacks(self, metapacks):
+        """
+        Builds a collection sequence ('colseq') from a metapack
+        """
+        return DELIM_LVL3.join([("{}" + DELIM_LVL2 + "{}" + 
+                                DELIM_LVL1 + "{}" +
+                                DELIM_LVL1 + "{}").format(name, value["length"],
+                                                                value["digest"],
+                                                                value["topology"])
+                                for name, value in metapacks.items()])
+
+    def load_collection(self, metapacks):
+        collection_string = self.colseq_from_metapacks(metapacks)
+        collection_checksum = self.load_seq(collection_string)
+        return collection_checksum
+
+    def load_collection_from_seqdict(self, seqdict):
+        metapacks = {}
+        for name, seq in seqdict.items():
+            metapacks[name] = self.build_metapack(seq, load=True)
+        collection_checksum = self.load_collection(metapacks)
+        return collection_checksum, metapacks
+
 
     def fasta_fmt(self, content):
         """
@@ -109,7 +187,12 @@ class RefDB(object):
         self.database[checksum] = seq
         _LOGGER.info("Loaded {}".format(checksum))
 
+
+
         return checksum
+
+
+
 
 
     def load_fasta(self, fa_file, checksum_function=None):
@@ -124,12 +207,11 @@ class RefDB(object):
         content_checksums = {}
         for k in fa_object.keys():
             seq = str(fa_object[k])
-            content_checksums[k] = {'length': len(seq), 'seq': self.load_seq(seq)}
+            content_checksums[k] = {'length': len(seq), 'digest': self.load_seq(seq),
+                                    'topology': 'linear'}
         # Produce a length-annotated seq
         #collection_string = ";".join([":".join(i) for i in content_checksums.items()])
-        collection_string = DELIM_LVL3.join([("{}" + DELIM_LVL2 + "{}" + 
-                                DELIM_LVL1 + "{}").format(name, value["length"], value["seq"]) 
-                                for name, value in content_checksums.items()])
+        collection_string = self.colseq_from_metapacks(content_checksums)
         _LOGGER.info("collection_string: {}".format(collection_string))
         collection_checksum = self.load_seq(collection_string)
        
@@ -199,6 +281,7 @@ def fasta_checksum(fa_file):
     content_checksums = {}
     for k in fa_object.keys():
         content_checksums[k] = self.checksum_function(str(fa_object[k]))
-    collection_string = ";".join([":".join(i) for i in content_checksums.items()])
+    collection_string = DELIM_LVL3.join([DELIM_LVL2.join(i) for i in content_checksums.items()])
     collection_checksum = self.load_seq(collection_string)
     return collection_checksum, content_checksums
+
