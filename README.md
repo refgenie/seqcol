@@ -9,4 +9,13 @@ I made two demos:
 
 ```
 docker run -it --network "host" mongo
+
+
 ```
+
+To link to persistent data on rivanna:
+
+```
+docker run --user=854360:25014 -p 27017:27017 -v /ext/qumulo/database/mongo:/data/db mongo
+```
+I have to use the user that matches the one on the filesystem.
