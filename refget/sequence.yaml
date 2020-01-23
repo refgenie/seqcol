@@ -1,0 +1,7 @@
+description: "Schema for a raw sequence"
+properties:
+  sequence:
+    type: string
+    description: "the actual sequence"
+required:
+  - sequence

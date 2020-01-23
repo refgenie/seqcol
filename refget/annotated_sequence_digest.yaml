@@ -1,0 +1,23 @@
+description: "Schema for sequence DRUID plus metadata"
+properties:
+  name:
+    type: string
+  length:
+    type: "integer"
+  topology:
+    type: string
+    enum: ["circular", "linear"]
+    default: "linear"
+  sequence_digest:
+    type: string
+    description: "The sequence digest"
+    tags: ["recursive"]
+required:
+  - length
+  - name
+  - topology
+recursive:
+  - sequence_digest
+not:
+  required:
+    - sequence  

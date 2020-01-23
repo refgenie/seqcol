@@ -1,0 +1,10 @@
+description: "Schema for library of fasta files"
+properties:
+  name:
+    type: string
+  collection_digest:
+    type: string
+required:
+  - collection_digest
+recursive:
+  - collection_digest
