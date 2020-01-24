@@ -3,14 +3,17 @@ import logmuse
 import mongodict
 import yaml
 
+
+henge.ITEM_TYPE = "_item_type"
+
 class RefGetHenge(henge.Henge):
     """
     Extension of henge that accommodates refget sequences.
     """
     def refget(self, digest):
-        if self.database[digest + "_item_type"] == "sequence":
+        if self.database[digest + henge.ITEM_TYPE] == "sequence":
             return self.retrieve(digest)['sequence']
-        elif self.database[digest + "_item_type"] == "asd":
+        elif self.database[digest + henge.ITEM_TYPE] == "asd":
             return[{x['name']: x['sequence_digest']['sequence']} for x in self.retrieve(digest)]
 
 
