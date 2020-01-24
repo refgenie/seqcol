@@ -1,26 +1,45 @@
+from copy import copy
 import henge
 import logmuse
 import mongodict
 import yaml
 
-
+import pyfaidx
+import logging
+_LOGGER = logging.getLogger(__name__)
 henge.ITEM_TYPE = "_item_type"
 
 class RefGetHenge(henge.Henge):
     """
     Extension of henge that accommodates refget sequences.
     """
-    def refget(self, digest, reclimit=None, return_fmt=None):
+    def refget(self, digest, reclimit=None, postprocess=None):
         item_type = self.database[digest + henge.ITEM_TYPE]
 
-        if item_type == "sequence":
-            return self.retrieve(digest)['sequence']
-        elif item_type == "asd":
-            asdlist = [{x['name']: x['sequence_digest']['sequence']} for x in self.retrieve(digest)]
-            if return_fmt == "fasta":
-                return self.fasta_fmt(asdlist)
-            else:
+        full_data = self.retrieve(digest, reclimit=reclimit)
+        if not postprocess:
+            return full_data
+    
+            full_data = self.retrieve(digest)
+        if postprocess == "simplify":
+            if item_type == "sequence":
+                return full_data['sequence']
+            elif item_type == "asd":
+                asdlist = {}
+                for x in full_data:
+                    asdlist[x['name']] = x['sequence_digest']['sequence']
                 return asdlist
+
+        if postprocess == "fasta":
+            if item_type == "sequence":
+                raise Exception("can't postprocess a sequence into fasta")
+            elif item_type == "asd":
+                asdlist = {}
+                for x in full_data:
+                    asdlist[x['name']] = x['sequence_digest']['sequence']                
+                return self.fasta_fmt(asdlist)
+
+        _LOGGER.error("Not implemented.")
 
     def fasta_fmt(self, content):
         """
@@ -34,7 +53,7 @@ class RefGetHenge(henge.Henge):
         if not checksum_function:
             checksum_function = self.checksum_function
 
-        checksum = self.insert({'sequence': seq}, "sequence")
+        checksum = self.insert([{'sequence': seq}], "sequence")
         _LOGGER.info("Loaded {}".format(checksum))
         return checksum
 
@@ -47,14 +66,16 @@ class RefGetHenge(henge.Henge):
         if not checksum_function:
             checksum_function = self.checksum_function        
         fa_object = parse_fasta(fa_file)
-        asdlist = {}
+        asdlist = []
         for k in fa_object.keys():
             seq = str(fa_object[k])
-            asdlist[k] = {'name': k,
+            asdlist.append({'name': k,
                           'length': len(seq), 
-                          'toplogy': 'linear',
-                          'sequence_digest': self.load_seq(seq)}
+                          'topology': 'linear',
+                          'sequence_digest': self.load_seq(seq)})
 
+        print(asdlist)
+        _LOGGER.info(asdlist)
         collection_checksum = self.insert(asdlist, 'asd')
         return collection_checksum, asdlist
 
@@ -64,7 +85,7 @@ class RefGetHenge(henge.Henge):
         values as sequences, into the 'asdlist' required for henge insert.
         """
         seqset_new = copy(seqset)
-        for k, v in seqset:
+        for k, v in seqset.items():
             if isinstance(v, str):
                 seq = v
                 v = {'sequence': seq}
@@ -78,25 +99,49 @@ class RefGetHenge(henge.Henge):
                 del v['sequence']
             if 'name' not in v.keys():
                 v['name'] = k
+            if 'toplogy' not in v.keys():
+                v['toplogy'] = 'linear'
 
             seqset_new[k] = v
 
-        collection_checksum = self.insert(seqset_new, 'asd')
+        collection_checksum = self.insert(list(seqset_new.values()), 'asd')
         return collection_checksum, seqset_new
 
 
-CONTENT_ALL_A_IN_B = 2^0
-CONTENT_ALL_B_IN_A = 2^1
-LENGTHS_ALL_A_IN_B = 2^2
-LENGTHS_ALL_B_IN_A = 2^4
-NAMES_ALL_A_IN_B = 2^5
-NAMES_ALL_B_IN_A = 2^6
-TOPO_ALL_A_IN_B = 2^7
-TOPO_ALL_B_IN_A = 2^8
-CONTENT_ANY_SHARED = 2^9
-LENGTHS_ANY_SHARED = 2^10
-NAMES_ANY_SHARED = 2^11
-CONTENT_A_ORDER = 2^12
+CONTENT_ALL_A_IN_B = 2**0
+CONTENT_ALL_B_IN_A = 2**1
+LENGTHS_ALL_A_IN_B = 2**2
+LENGTHS_ALL_B_IN_A = 2**3
+NAMES_ALL_A_IN_B = 2**4
+NAMES_ALL_B_IN_A = 2**5
+TOPO_ALL_A_IN_B = 2**6
+TOPO_ALL_B_IN_A = 2**7
+CONTENT_ANY_SHARED = 2**8
+LENGTHS_ANY_SHARED = 2**9
+NAMES_ANY_SHARED = 2**10
+CONTENT_A_ORDER = 2**11
+CONTENT_B_ORDER = 2**12
+
+FLAGS = {}
+FLAGS[CONTENT_ALL_A_IN_B] = "CONTENT_ALL_A_IN_B"
+FLAGS[CONTENT_ALL_B_IN_A] = "CONTENT_ALL_B_IN_A"
+FLAGS[LENGTHS_ALL_A_IN_B] = "LENGTHS_ALL_A_IN_B"
+FLAGS[LENGTHS_ALL_B_IN_A] = "LENGTHS_ALL_B_IN_A"
+FLAGS[NAMES_ALL_A_IN_B] = "NAMES_ALL_A_IN_B"
+FLAGS[NAMES_ALL_B_IN_A] = "NAMES_ALL_B_IN_A"
+FLAGS[TOPO_ALL_A_IN_B] = "TOPO_ALL_A_IN_B"
+FLAGS[TOPO_ALL_B_IN_A] = "TOPO_ALL_B_IN_A"
+FLAGS[CONTENT_ANY_SHARED] = "CONTENT_ANY_SHARED"
+FLAGS[LENGTHS_ANY_SHARED] = "LENGTHS_ANY_SHARED"
+FLAGS[NAMES_ANY_SHARED] = "NAMES_ANY_SHARED"
+FLAGS[CONTENT_A_ORDER] = "CONTENT_A_ORDER"
+FLAGS[CONTENT_B_ORDER] = "CONTENT_B_ORDER"
+
+def explain(flag):
+    print(bin(flag))
+    for e in range(0,13):
+        if flag & 2**e:
+            print(FLAGS[2**e])
 
 
 
@@ -105,8 +150,8 @@ def compare(rgdb, digestA, digestB):
     Given two collection checksums in the database, provide some information
     about how they are related.
     """
-    typeA = self.database[digestA + henge.ITEM_TYPE]
-    typeB = self.database[digestB + henge.ITEM_TYPE]
+    typeA = rgdb.database[digestA + henge.ITEM_TYPE]
+    typeB = rgdb.database[digestB + henge.ITEM_TYPE]
 
     if typeA != typeB:
         _LOGGER.error("Can't compare objects of different types: {} vs {}".format(typeA, typeB))
@@ -114,48 +159,53 @@ def compare(rgdb, digestA, digestB):
     asdA = rgdb.refget(digestA, reclimit=1)
     asdB = rgdb.refget(digestB, reclimit=1)
 
-    ainb = [x in asdB.values() for x in asdA.values()]
-    bina = [x in asdA.values() for x in asdB.values()]
+    def xp(prop, lst):
+        """ Extract property """
+        return list(map(lambda x: x[prop], lst))
 
-    ainb_length = [x['length'] for x in asdA.values()]
-    # [[name, val['length']] for name, val in content1.items()]
+    ainb = [x in xp('sequence_digest', asdB) for x in xp('sequence_digest', asdA)]
+    bina = [x in xp('sequence_digest', asdA) for x in xp('sequence_digest', asdB)]
+    
+    def index(x, lst):
+        try:
+            return xp('sequence_digest', lst).index(x)
+        except:
+            return None
 
     return_flag = 0  # initialize
+    if sum(ainb) > 1:
+        ordA = list(filter(None.__ne__, [index(x, asdB) for x in xp('sequence_digest', asdA)]))
+        if (ordA == sorted(ordA)):
+            return_flag += CONTENT_A_ORDER
+    if sum(bina) > 1:        
+        ordB = list(filter(None.__ne__, [index(x, asdA) for x in xp('sequence_digest', asdB)]))
+        if (ordB == sorted(ordB)):
+            return_flag += CONTENT_B_ORDER
+
+    ainb_len = [x in xp('length', asdB) for x in xp('length', asdA)]
+    bina_len = [x in xp('length', asdA) for x in xp('length', asdB)]
+
+    ainb_name = [x in xp('name', asdB) for x in xp('name', asdA)]
+    bina_name = [x in xp('name', asdA) for x in xp('name', asdB)]
 
     if all(ainb):
         return_flag += CONTENT_ALL_A_IN_B
-        return_flag += LENGTHS_ALL_A_IN_B
+
     if all(bina):
         return_flag += CONTENT_ALL_B_IN_A
     
-    if all([x in asdB.keys() for x in asdA.keys()])
+    if all(ainb_name):
         return_flag += NAMES_ALL_A_IN_B
-    
-    if all([x in asdA.keys() for x in asdB.keys()])
+    if all(bina_name):
         return_flag += NAMES_ALL_B_IN_A
 
-    if all(ainb):
-        if all(bina):
-            names_check = [x in asdB.keys() for x in asdA.keys()]
-            if all(names_check):
-                res = "Sequence-level identical, order mismatch"
-            else:
-                res = "Sequence-level identical, names mismatch"
-        else:
-            res = "A is a sequence-level subset of B"
-    elif any(ainb):
-        if all(bina):
-            res = "B is a sequence-level subset of A"
-        else:
-            res = "A and B share some sequences"
-    else:
-        res = "No sequences shared"
+    if all(ainb_len):
+        return_flag += LENGTHS_ALL_A_IN_B
+    if all(bina_len):
+        return_flag += LENGTHS_ALL_B_IN_A
 
-
-
-    return res
-
-
+    _LOGGER.info(explain(return_flag))
+    return return_flag
 
 # Static functions below (these don't require a database)
 
@@ -190,6 +240,7 @@ schemas = {"sequence": load_yaml("sequence.yaml"), "asd": load_yaml("annotated_s
             "acd": load_yaml("annotated_collection_digest.yaml")}
 
 h = RefGetHenge(backend, schemas=schemas)
+rgdb = h
 
 item_seq1 = {'sequence': "TCGA"}
 item_seq2 = {'sequence': "TCGATCGATCGATCGA"}
@@ -235,7 +286,6 @@ h.retrieve(druidacd, reclimit=0)
 druidacd
 
 h.retrieve(druids1)
-
 h.refget(druids1)
 
 h.retrieve(druidasd1)
@@ -243,3 +293,74 @@ h.refget(druidasd1)
 
 h.show()
 
+
+h.load_seq("TCGATTTT")
+
+fa_file = "../demo_fasta/demo2.fa"
+checksum2, content2 = h.load_fasta(fa_file)
+
+h.refget(checksum2)
+print(h.refget(checksum2, postprocess="fasta"))
+h.refget(checksum2, postprocess="simplify")
+h.database[checksum2]
+
+h.refget(h.refget(checksum2, reclimit=1)[0]['sequence_digest'])
+
+h.retrieve(druids1)
+h.refget(druids1)
+h.refget(druids1, postprocess="simplify")
+
+
+
+fa_file = "../demo_fasta/demo.fa"
+checksum, content = h.load_fasta(fa_file)
+
+h.refget(checksum)
+h.refget(checksum2)
+
+compare(h, checksum, checksum2)
+
+ss = [{'name': "chr1",
+        'length': 10, 
+        'topology': "linear"},
+        {'name': "chr2",
+        'length': 20, 
+        'topology': "linear"}]
+
+ss
+
+
+
+
+druid_ss = h.insert(ss, "asd")
+
+h.retrieve(druid_ss)
+h.refget(druid_ss)
+
+h.refget(checksum)
+h.refget(checksum2)
+
+f = compare(h, checksum, druid_ss)
+explain(f)
+f = compare(h, checksum, checksum2)
+explain(f)
+f = compare(h, checksum2, druid_ss)
+explain(f)
+
+digestA = checksum
+digestB = druid_ss
+digestB = checksum2
+bin(40)
+bin(38)
+
+
+
+lres = {'chr1': {'length': 10},
+      "chr2": {'length': 20}}
+
+
+
+h.load_seqset(lres)
+
+
+h.insert(lres, 'asd')
