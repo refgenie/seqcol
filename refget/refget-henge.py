@@ -65,13 +65,17 @@ class RefGetHenge(henge.Henge):
         """
         seqset_new = copy(seqset)
         for k, v in seqset:
+            if isinstance(v, str):
+                seq = v
+                v = {'sequence': seq}
             if 'length' not in v.keys():
                 if 'sequence' not in v.keys():
                     _LOGGER.error("Each sequence must have either length or a sequence.")
                 else:
                     v['length'] = len(v['sequence'])
-            if 'sequence' in i.keys():
+            if 'sequence' in v.keys():
                 v['sequence_digest'] = self.load_seq(seq)
+                del v['sequence']
             if 'name' not in v.keys():
                 v['name'] = k
 
@@ -79,6 +83,78 @@ class RefGetHenge(henge.Henge):
 
         collection_checksum = self.insert(seqset_new, 'asd')
         return collection_checksum, seqset_new
+
+
+CONTENT_ALL_A_IN_B = 2^0
+CONTENT_ALL_B_IN_A = 2^1
+LENGTHS_ALL_A_IN_B = 2^2
+LENGTHS_ALL_B_IN_A = 2^4
+NAMES_ALL_A_IN_B = 2^5
+NAMES_ALL_B_IN_A = 2^6
+TOPO_ALL_A_IN_B = 2^7
+TOPO_ALL_B_IN_A = 2^8
+CONTENT_ANY_SHARED = 2^9
+LENGTHS_ANY_SHARED = 2^10
+NAMES_ANY_SHARED = 2^11
+CONTENT_A_ORDER = 2^12
+
+
+
+def compare(rgdb, digestA, digestB):
+    """
+    Given two collection checksums in the database, provide some information
+    about how they are related.
+    """
+    typeA = self.database[digestA + henge.ITEM_TYPE]
+    typeB = self.database[digestB + henge.ITEM_TYPE]
+
+    if typeA != typeB:
+        _LOGGER.error("Can't compare objects of different types: {} vs {}".format(typeA, typeB))
+
+    asdA = rgdb.refget(digestA, reclimit=1)
+    asdB = rgdb.refget(digestB, reclimit=1)
+
+    ainb = [x in asdB.values() for x in asdA.values()]
+    bina = [x in asdA.values() for x in asdB.values()]
+
+    ainb_length = [x['length'] for x in asdA.values()]
+    # [[name, val['length']] for name, val in content1.items()]
+
+    return_flag = 0  # initialize
+
+    if all(ainb):
+        return_flag += CONTENT_ALL_A_IN_B
+        return_flag += LENGTHS_ALL_A_IN_B
+    if all(bina):
+        return_flag += CONTENT_ALL_B_IN_A
+    
+    if all([x in asdB.keys() for x in asdA.keys()])
+        return_flag += NAMES_ALL_A_IN_B
+    
+    if all([x in asdA.keys() for x in asdB.keys()])
+        return_flag += NAMES_ALL_B_IN_A
+
+    if all(ainb):
+        if all(bina):
+            names_check = [x in asdB.keys() for x in asdA.keys()]
+            if all(names_check):
+                res = "Sequence-level identical, order mismatch"
+            else:
+                res = "Sequence-level identical, names mismatch"
+        else:
+            res = "A is a sequence-level subset of B"
+    elif any(ainb):
+        if all(bina):
+            res = "B is a sequence-level subset of A"
+        else:
+            res = "A and B share some sequences"
+    else:
+        res = "No sequences shared"
+
+
+
+    return res
+
 
 
 # Static functions below (these don't require a database)
