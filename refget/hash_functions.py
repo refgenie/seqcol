@@ -32,3 +32,6 @@ def trunc512_to_vmc(trunc512):
     digest_length = len(trunc512)*2
     digest = binascii.unhexlify(trunc512)
     return _vmc_format(digest, digest_length)
+
+def md5(seq):
+    return hashlib.md5(seq.encode()).hexdigest()

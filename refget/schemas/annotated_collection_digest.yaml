@@ -1,4 +1,5 @@
-description: "Schema for library of fasta files"
+description: "Schema for an Annotated Collection Digest; this is analogous to a single fasta file with metadata."
+type: object
 properties:
   name:
     type: string

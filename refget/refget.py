@@ -1,118 +1,94 @@
-""" Computing configuration representation """
-
-import redis
-import logging
-import pyfaidx
-import pymongo
-pymongo.Connection = lambda host, port, **kwargs: pymongo.MongoClient(host=host, port=port)
+from copy import copy
+import henge
+import logmuse
 import mongodict
+import os
+import yaml
 
-
-from collections import OrderedDict
-from . import trunc512_digest
-from . import __version__
-
+import pyfaidx
+import logging
 _LOGGER = logging.getLogger(__name__)
+henge.ITEM_TYPE = "_item_type"
 
-DELIM_LVL1 = u"\u00B7"
-DELIM_LVL2 = u"\u2016"
-DELIM_LVL3 = u"\u2980"
+from .const import *
 
-class RedisDict(redis.Redis):
+SCHEMA_FILEPATH =  os.path.join(
+        os.path.dirname(__file__),
+        "schemas")
+
+class RefGetHenge(henge.Henge):
     """
-    Dict-like interface to a redis back-end
+    Extension of henge that accommodates refget sequences.
     """
-    def __delitem__(self, key):
-        self.set(key, None)
 
-    def __getitem__(self, key):
-        result = self.get(key)
-        if result:
-            return result.decode()
-        else:
-            raise KeyError(key)
+    def __init__(self, database, checksum_function=henge.md5):
+        """
+        A user interface to insert and retrieve decomposable recursive unique
+        identifiers (DRUIDs).
+
+        :param dict database: Dict-like lookup database with sequences and hashes.
+        :param dict schemas: One or more jsonschema schemas describing the
+            data types stored by this Henge
+        :param function(str) -> str checksum_function: Default function to handle the digest of the
+            serialized items stored in this henge.
+        """
+
+        # These are the item types that this henge can understand.
+        schemas = { "sequence": load_yaml(os.path.join(SCHEMA_FILEPATH, "sequence.yaml")),
+                    "ASD": load_yaml(os.path.join(SCHEMA_FILEPATH, "annotated_sequence_digest.yaml")),
+                    "ASDList": load_yaml(os.path.join(SCHEMA_FILEPATH, "ASDList.yaml")),
+                    "ACDList": load_yaml(os.path.join(SCHEMA_FILEPATH, "ACDList.yaml")),
+                    "ACD": load_yaml(os.path.join(SCHEMA_FILEPATH, "annotated_collection_digest.yaml"))}
+
+        super(RefGetHenge, self).__init__(database, schemas, checksum_function)
+
+
+    def refget(self, digest, reclimit=None, postprocess=None):
+        item_type = self.database[digest + henge.ITEM_TYPE]
+
+        full_data = self.retrieve(digest, reclimit=reclimit)
+        if not postprocess:
+            return full_data
     
-    def __setitem__(self, key, value):
-        self.set(key, value)
+            full_data = self.retrieve(digest)
+        if postprocess == "simplify":
+            if item_type == "sequence":
+                return full_data['sequence']
+            elif item_type == "asd":
+                asdlist = {}
+                for x in full_data:
+                    asdlist[x['name']] = x['sequence_digest']['sequence']
+                return asdlist
 
-class MongoDict(mongodict.MongoDict):
-    pass
+        if postprocess == "fasta":
+            if item_type == "sequence":
+                raise Exception("can't postprocess a sequence into fasta")
+            elif item_type == "asd":
+                asdlist = {}
+                for x in full_data:
+                    asdlist[x['name']] = x['sequence_digest']['sequence']                
+                return self.fasta_fmt(asdlist)
 
-
-class RefDB(object):
-
-    def __init__(self, database, checksum_function=trunc512_digest):
-        """
-        :@param database: Dict-like lookup database with sequences and hashes.
-        """
-        self.database = database
-        self.checksum_function = checksum_function
-
-
-    def refget(self, checksum, lookup_table=None, reclimit=None):
-        """
-        Recursive refget lookup implementation
-
-        :param str checksum: 
-        :param int reclimit: Limit the number of recursion layers in the refget lookup
-        :return str: Sequence corresponding to given checksum
-        """
-        if not lookup_table:
-            lookup_table = self.database
-
-        try:
-            result = lookup_table[checksum]
-        except KeyError:
-            return "Not found"
-
-        if (DELIM_LVL2 not in result):
-            # Base case
-            return result
-        else:
-            # Recursive case
-            if isinstance(reclimit, int):
-                reclimit = reclimit - 1
-
-            content = OrderedDict()
-            for unit in result.split(DELIM_LVL3):
-                name, laseq = unit.split(DELIM_LVL2)
-                try:
-                    length, seq = laseq.split(DELIM_LVL1)
-                except ValueError:
-                    length = None
-                    seq = laseq
-                if (isinstance(reclimit, int) and reclimit == 0):
-                    content[name] = {
-                        'length': length,
-                        'seq': seq,
-                        }
-                else:
-                    content[name] = {
-                        'length': length,
-                        'seq': self.refget(seq, lookup_table, reclimit)
-                        }
-            return content
+        _LOGGER.error("Not implemented.")
 
     def fasta_fmt(self, content):
         """
         Given a content dict return by refget for a sequence collection,
         convert it to a string that can be printed as a fasta file.
         """
-        return "\n".join(["\n".join(
-            [">" + name, seq]) for name, seq in content.items()])
+        return "\n".join(["\n".join([">" + x["name"],
+             x["sequence_digest"]["sequence"]]) for x in content])
 
 
     def load_seq(self, seq, checksum_function=None):
         if not checksum_function:
             checksum_function = self.checksum_function
-        checksum = checksum_function(seq)
-        self.database[checksum] = seq
-        _LOGGER.info("Loaded {}".format(checksum))
 
+        checksum = self.insert({'sequence': seq}, "sequence")
+        _LOGGER.info("Loaded {}".format(checksum))
         return checksum
 
-
-    def load_fasta(self, fa_file, checksum_function=None):
+    def load_fasta(self, fa_file, checksum_function=None, lengths_only=False):
         """
         Calculates checksums and loads each sequence in a fasta file into the
         database, and loads a level 2 collection checksum representing the
@@ -121,57 +97,140 @@ class RefDB(object):
         if not checksum_function:
             checksum_function = self.checksum_function        
         fa_object = parse_fasta(fa_file)
-        content_checksums = {}
+        asdlist = []
         for k in fa_object.keys():
             seq = str(fa_object[k])
-            content_checksums[k] = {'length': len(seq), 'seq': self.load_seq(seq)}
-        # Produce a length-annotated seq
-        #collection_string = ";".join([":".join(i) for i in content_checksums.items()])
-        collection_string = DELIM_LVL3.join([("{}" + DELIM_LVL2 + "{}" + 
-                                DELIM_LVL1 + "{}").format(name, value["length"], value["seq"]) 
-                                for name, value in content_checksums.items()])
-        _LOGGER.info("collection_string: {}".format(collection_string))
-        collection_checksum = self.load_seq(collection_string)
-       
-        return collection_checksum, content_checksums
+            if lengths_only:
+                seq_digest = ""
+            else:
+                seq_digest = self.load_seq(seq)
+            asdlist.append({'name': k,
+                          'length': len(seq), 
+                          'topology': 'linear',
+                          'sequence_digest': seq_digest})
+
+        _LOGGER.info(asdlist)
+        collection_checksum = self.insert(asdlist, 'ASDList')
+        return collection_checksum, asdlist
+
+    def load_seqset(self, seqset):
+        """
+        Convert a 'seqset', which is a dict with names as sequence names and
+        values as sequences, into the 'asdlist' required for henge insert.
+        """
+        seqset_new = copy(seqset)
+        for k, v in seqset.items():
+            if isinstance(v, str):
+                seq = v
+                v = {'sequence': seq}
+            if 'length' not in v.keys():
+                if 'sequence' not in v.keys():
+                    _LOGGER.error("Each sequence must have either length or a sequence.")
+                else:
+                    v['length'] = len(v['sequence'])
+            if 'sequence' in v.keys():
+                v['sequence_digest'] = self.load_seq(seq)
+                del v['sequence']
+            if 'name' not in v.keys():
+                v['name'] = k
+            if 'toplogy' not in v.keys():
+                v['toplogy'] = 'linear'
+
+            seqset_new[k] = v
+
+        collection_checksum = self.insert(list(seqset_new.values()), 'ASDList')
+        return collection_checksum, seqset_new
 
 
-    def compare(self, checksumA, checksumB):
+    def compare(self, digestA, digestB, explain=False):
         """
         Given two collection checksums in the database, provide some information
         about how they are related.
 
+        :param str digestA: Digest for first sequence collection to compare.
+        :param str digestB: Digest for second sequence collection to compare.
+        :param bool explain: Print an explanation of the flag? [Default: False]
         """
-        contents1 = self.refget(checksumA, reclimit=1)
-        contents2 = self.refget(checksumB, reclimit=1)
+        typeA = self.database[digestA + henge.ITEM_TYPE]
+        typeB = self.database[digestB + henge.ITEM_TYPE]
 
-        ainb = [x in contents2.values() for x in contents1.values()]
-        bina = [x in contents1.values() for x in contents2.values()]
+        if typeA != typeB:
+            _LOGGER.error("Can't compare objects of different types: {} vs {}".format(typeA, typeB))
 
-        ainb_length = [x['length'] for x in contents1.values()]
-        # [[name, val['length']] for name, val in content1.items()]
+        asdA = self.refget(digestA, reclimit=1)
+        asdB = self.refget(digestB, reclimit=1)
 
+        
+        # Not ideal, but we expect these to return lists, but if the item was
+        # singular only a dict is returned
+        if not isinstance(asdA, list):
+            asdA = [asdA]
+        if not isinstance(asdB, list):
+            asdB = [asdB]
+
+        def xp(prop, lst):
+            """ Extract property """
+            return list(map(lambda x: x[prop], lst))
+
+        ainb = [x in xp('sequence_digest', asdB) for x in xp('sequence_digest', asdA)]
+        bina = [x in xp('sequence_digest', asdA) for x in xp('sequence_digest', asdB)]
+        
+        def index(x, lst):
+            try:
+                return xp('sequence_digest', lst).index(x)
+            except:
+                return None
+
+        return_flag = 0  # initialize
+        if sum(ainb) > 1:
+            ordA = list(filter(None.__ne__, [index(x, asdB) for x in xp('sequence_digest', asdA)]))
+            if (ordA == sorted(ordA)):
+                return_flag += CONTENT_A_ORDER
+        if sum(bina) > 1:        
+            ordB = list(filter(None.__ne__, [index(x, asdA) for x in xp('sequence_digest', asdB)]))
+            if (ordB == sorted(ordB)):
+                return_flag += CONTENT_B_ORDER
+
+        ainb_len = [x in xp('length', asdB) for x in xp('length', asdA)]
+        bina_len = [x in xp('length', asdA) for x in xp('length', asdB)]
+
+        ainb_name = [x in xp('name', asdB) for x in xp('name', asdA)]
+        bina_name = [x in xp('name', asdA) for x in xp('name', asdB)]
 
         if all(ainb):
-            if all(bina):
-                names_check = [x in contents2.keys() for x in contents1.keys()]
-                if all(names_check):
-                    res = "Sequence-level identical, order mismatch"
-                else:
-                    res = "Sequence-level identical, names mismatch"
-            else:
-                res = "A is a sequence-level subset of B"
-        elif any(ainb):
-            if all(bina):
-                res = "B is a sequence-level subset of A"
-            else:
-                res = "A and B share some sequences"
-        else:
-            res = "No sequences shared"
+            return_flag += CONTENT_ALL_A_IN_B
+
+        if all(bina):
+            return_flag += CONTENT_ALL_B_IN_A
+        
+        if all(ainb_name):
+            return_flag += NAMES_ALL_A_IN_B
+        if all(bina_name):
+            return_flag += NAMES_ALL_B_IN_A
+
+        if all(ainb_len):
+            return_flag += LENGTHS_ALL_A_IN_B
+        if all(bina_len):
+            return_flag += LENGTHS_ALL_B_IN_A
+
+        if explain:
+            explain_flag(return_flag)
+        return return_flag
 
 
 
-        return res
+def load_yaml(filename):
+    """ Load a yaml file into a python dict """
+    with open(filename) as f:
+        return yaml.safe_load(f)
+
+
+def explain_flag(flag):
+    """ Explains a compare flag """
+    print("Flag: {}\nBinary: {}\n".format(flag, bin(flag)))
+    for e in range(0,13):
+        if flag & 2**e:
+            print(FLAGS[2**e])
 
 
 # Static functions below (these don't require a database)

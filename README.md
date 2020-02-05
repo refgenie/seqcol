@@ -6,7 +6,6 @@ I made two demos:
 - [advanced](advanced.ipynb): shows how to do sequence-level comparisons between two checksums, revealing structure of the relationship (*e.g.* ordering differences, naming mismatches, sequence subsets).
 
 
-
 ```
 docker run -it --network "host" mongo
 
