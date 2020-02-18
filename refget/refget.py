@@ -21,7 +21,7 @@ class RefGetHenge(henge.Henge):
     Extension of henge that accommodates refget sequences.
     """
 
-    def __init__(self, database, checksum_function=henge.md5):
+    def __init__(self, database, schemas=None, henges=None, checksum_function=henge.md5):
         """
         A user interface to insert and retrieve decomposable recursive unique
         identifiers (DRUIDs).
@@ -34,13 +34,15 @@ class RefGetHenge(henge.Henge):
         """
 
         # These are the item types that this henge can understand.
-        schemas = { "sequence": load_yaml(os.path.join(SCHEMA_FILEPATH, "sequence.yaml")),
-                    "ASD": load_yaml(os.path.join(SCHEMA_FILEPATH, "annotated_sequence_digest.yaml")),
-                    "ASDList": load_yaml(os.path.join(SCHEMA_FILEPATH, "ASDList.yaml")),
-                    "ACDList": load_yaml(os.path.join(SCHEMA_FILEPATH, "ACDList.yaml")),
-                    "ACD": load_yaml(os.path.join(SCHEMA_FILEPATH, "annotated_collection_digest.yaml"))}
+        if not schemas:
+            schemas = { "sequence": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "sequence.yaml")),
+                    "ASD": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "annotated_sequence_digest.yaml")),
+                    "ASDList": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "ASDList.yaml")),
+                    "ACDList": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "ACDList.yaml")),
+                    "ACD": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "annotated_collection_digest.yaml"))}
 
-        super(RefGetHenge, self).__init__(database, schemas, checksum_function)
+
+        super(RefGetHenge, self).__init__(database, schemas, henges=henges, checksum_function=checksum_function)
 
 
     def refget(self, digest, reclimit=None, postprocess=None):
@@ -216,13 +218,6 @@ class RefGetHenge(henge.Henge):
         if explain:
             explain_flag(return_flag)
         return return_flag
-
-
-
-def load_yaml(filename):
-    """ Load a yaml file into a python dict """
-    with open(filename) as f:
-        return yaml.safe_load(f)
 
 
 def explain_flag(flag):

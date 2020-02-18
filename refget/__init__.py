@@ -8,7 +8,7 @@ from .refget import fasta_checksum, parse_fasta, explain_flag
 from .const import *
 
 
-from henge import MongoDict
+from henge import MongoDict, load_yaml
 
 __classes__ = ["RefGetHenge", "MongoDict"]
 __all__ = __classes__ + []
