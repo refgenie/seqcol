@@ -12,9 +12,10 @@ henge.ITEM_TYPE = "_item_type"
 
 from .const import *
 
-SCHEMA_FILEPATH =  os.path.join(
+SCHEMA_FILEPATH = os.path.join(
         os.path.dirname(__file__),
         "schemas")
+
 
 class RefGetHenge(henge.Henge):
     """
@@ -81,13 +82,11 @@ class RefGetHenge(henge.Henge):
         return "\n".join(["\n".join([">" + x["name"],
              x["sequence_digest"]["sequence"]]) for x in content])
 
-
     def load_seq(self, seq, checksum_function=None):
         if not checksum_function:
             checksum_function = self.checksum_function
-
         checksum = self.insert({'sequence': seq}, "sequence")
-        _LOGGER.info("Loaded {}".format(checksum))
+        _LOGGER.debug("Loaded {}".format(checksum))
         return checksum
 
     def load_fasta(self, fa_file, checksum_function=None, lengths_only=False):
@@ -111,7 +110,7 @@ class RefGetHenge(henge.Henge):
                           'topology': 'linear',
                           'sequence_digest': seq_digest})
 
-        _LOGGER.info(asdlist)
+        _LOGGER.debug(asdlist)
         collection_checksum = self.insert(asdlist, 'ASDList')
         return collection_checksum, asdlist
 
@@ -143,6 +142,73 @@ class RefGetHenge(henge.Henge):
         collection_checksum = self.insert(list(seqset_new.values()), 'ASDList')
         return collection_checksum, seqset_new
 
+    def compare_asds(self, asdA, asdB, explain=False):
+        """
+        Compare Annotated Sequence Digests (ASDs) -- digested sequences and metadata
+
+        :param str asdA: ASD for first sequence collection to compare.
+        :param str asdB: ASD for second sequence collection to compare.
+        :param bool explain: Print an explanation of the flag? [Default: False]
+        """
+        # Not ideal, but we expect these to return lists, but if the item was
+        # singular only a dict is returned
+        if not isinstance(asdA, list):
+            asdA = [asdA]
+        if not isinstance(asdB, list):
+            asdB = [asdB]
+
+        def xp(prop, lst):
+            """ Extract property """
+            return list(map(lambda x: x[prop], lst))
+
+        ainb = [x in xp('sequence_digest', asdB) for x in
+                xp('sequence_digest', asdA)]
+        bina = [x in xp('sequence_digest', asdA) for x in
+                xp('sequence_digest', asdB)]
+
+        def index(x, lst):
+            try:
+                return xp('sequence_digest', lst).index(x)
+            except:
+                return None
+
+        return_flag = 0  # initialize
+        if sum(ainb) > 1:
+            ordA = list(filter(None.__ne__, [index(x, asdB) for x in
+                                             xp('sequence_digest', asdA)]))
+            if (ordA == sorted(ordA)):
+                return_flag += CONTENT_A_ORDER
+        if sum(bina) > 1:
+            ordB = list(filter(None.__ne__, [index(x, asdA) for x in
+                                             xp('sequence_digest', asdB)]))
+            if (ordB == sorted(ordB)):
+                return_flag += CONTENT_B_ORDER
+
+        ainb_len = [x in xp('length', asdB) for x in xp('length', asdA)]
+        bina_len = [x in xp('length', asdA) for x in xp('length', asdB)]
+
+        ainb_name = [x in xp('name', asdB) for x in xp('name', asdA)]
+        bina_name = [x in xp('name', asdA) for x in xp('name', asdB)]
+
+        if all(ainb):
+            return_flag += CONTENT_ALL_A_IN_B
+
+        if all(bina):
+            return_flag += CONTENT_ALL_B_IN_A
+
+        if all(ainb_name):
+            return_flag += NAMES_ALL_A_IN_B
+        if all(bina_name):
+            return_flag += NAMES_ALL_B_IN_A
+
+        if all(ainb_len):
+            return_flag += LENGTHS_ALL_A_IN_B
+        if all(bina_len):
+            return_flag += LENGTHS_ALL_B_IN_A
+
+        if explain:
+            explain_flag(return_flag)
+        return return_flag
 
     def compare(self, digestA, digestB, explain=False):
         """
@@ -161,69 +227,13 @@ class RefGetHenge(henge.Henge):
 
         asdA = self.refget(digestA, reclimit=1)
         asdB = self.refget(digestB, reclimit=1)
-
-        
-        # Not ideal, but we expect these to return lists, but if the item was
-        # singular only a dict is returned
-        if not isinstance(asdA, list):
-            asdA = [asdA]
-        if not isinstance(asdB, list):
-            asdB = [asdB]
-
-        def xp(prop, lst):
-            """ Extract property """
-            return list(map(lambda x: x[prop], lst))
-
-        ainb = [x in xp('sequence_digest', asdB) for x in xp('sequence_digest', asdA)]
-        bina = [x in xp('sequence_digest', asdA) for x in xp('sequence_digest', asdB)]
-        
-        def index(x, lst):
-            try:
-                return xp('sequence_digest', lst).index(x)
-            except:
-                return None
-
-        return_flag = 0  # initialize
-        if sum(ainb) > 1:
-            ordA = list(filter(None.__ne__, [index(x, asdB) for x in xp('sequence_digest', asdA)]))
-            if (ordA == sorted(ordA)):
-                return_flag += CONTENT_A_ORDER
-        if sum(bina) > 1:        
-            ordB = list(filter(None.__ne__, [index(x, asdA) for x in xp('sequence_digest', asdB)]))
-            if (ordB == sorted(ordB)):
-                return_flag += CONTENT_B_ORDER
-
-        ainb_len = [x in xp('length', asdB) for x in xp('length', asdA)]
-        bina_len = [x in xp('length', asdA) for x in xp('length', asdB)]
-
-        ainb_name = [x in xp('name', asdB) for x in xp('name', asdA)]
-        bina_name = [x in xp('name', asdA) for x in xp('name', asdB)]
-
-        if all(ainb):
-            return_flag += CONTENT_ALL_A_IN_B
-
-        if all(bina):
-            return_flag += CONTENT_ALL_B_IN_A
-        
-        if all(ainb_name):
-            return_flag += NAMES_ALL_A_IN_B
-        if all(bina_name):
-            return_flag += NAMES_ALL_B_IN_A
-
-        if all(ainb_len):
-            return_flag += LENGTHS_ALL_A_IN_B
-        if all(bina_len):
-            return_flag += LENGTHS_ALL_B_IN_A
-
-        if explain:
-            explain_flag(return_flag)
-        return return_flag
+        return self.compare_asds(asdA, asdB, explain=explain)
 
 
 def explain_flag(flag):
     """ Explains a compare flag """
     print("Flag: {}\nBinary: {}\n".format(flag, bin(flag)))
-    for e in range(0,13):
+    for e in range(0, 13):
         if flag & 2**e:
             print(FLAGS[2**e])
 
@@ -231,7 +241,7 @@ def explain_flag(flag):
 # Static functions below (these don't require a database)
 
 def parse_fasta(fa_file):
-    _LOGGER.info("Hashing {}".format(fa_file))
+    _LOGGER.debug("Hashing {}".format(fa_file))
     try:
         fa_object = pyfaidx.Fasta(fa_file)
     except pyfaidx.UnsupportedCompressionFormat:
