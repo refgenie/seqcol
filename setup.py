@@ -46,7 +46,7 @@ setup(
     ],
     keywords="genome, assembly, bioinformatics, reference, sequence",
     url="https://github.com/databio/refget-py",
-    author=u"Nathan Sheffield",
+    author=u"Nathan Sheffield, Michal Stolarczyk",
     author_email=u"nathan@code.databio.org", 
     license="BSD2",
     entry_points={

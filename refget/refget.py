@@ -1,9 +1,7 @@
 from copy import copy
 import henge
 import logmuse
-import mongodict
 import os
-import yaml
 
 import pyfaidx
 import logging
@@ -33,27 +31,27 @@ class RefGetHenge(henge.Henge):
         :param function(str) -> str checksum_function: Default function to handle the digest of the
             serialized items stored in this henge.
         """
+        def _load_schema(name):
+            return henge.load_yaml(os.path.join(SCHEMA_FILEPATH, name))
 
         # These are the item types that this henge can understand.
         if not schemas:
-            schemas = { "sequence": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "sequence.yaml")),
-                    "ASD": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "annotated_sequence_digest.yaml")),
-                    "ASDList": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "ASDList.yaml")),
-                    "ACDList": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "ACDList.yaml")),
-                    "ACD": henge.load_yaml(os.path.join(SCHEMA_FILEPATH, "annotated_collection_digest.yaml"))}
-
-
-        super(RefGetHenge, self).__init__(database, schemas, henges=henges, checksum_function=checksum_function)
-
+            schemas = {
+                "sequence": _load_schema("sequence.yaml"),
+                "ASD": _load_schema("annotated_sequence_digest.yaml"),
+                "ASDList": _load_schema("ASDList.yaml"),
+                "ACDList": _load_schema("ACDList.yaml"),
+                "ACD": _load_schema("annotated_collection_digest.yaml")
+            }
+        super(RefGetHenge, self).__init__(database, schemas, henges=henges,
+                                          checksum_function=checksum_function)
 
     def refget(self, digest, reclimit=None, postprocess=None):
         item_type = self.database[digest + henge.ITEM_TYPE]
-
         full_data = self.retrieve(digest, reclimit=reclimit)
         if not postprocess:
             return full_data
-    
-            full_data = self.retrieve(digest)
+
         if postprocess == "simplify":
             if item_type == "sequence":
                 return full_data['sequence']
@@ -62,8 +60,7 @@ class RefGetHenge(henge.Henge):
                 for x in full_data:
                     asdlist[x['name']] = x['sequence_digest']['sequence']
                 return asdlist
-
-        if postprocess == "fasta":
+        elif postprocess == "fasta":
             if item_type == "sequence":
                 raise Exception("can't postprocess a sequence into fasta")
             elif item_type == "asd":
@@ -71,32 +68,30 @@ class RefGetHenge(henge.Henge):
                 for x in full_data:
                     asdlist[x['name']] = x['sequence_digest']['sequence']                
                 return self.fasta_fmt(asdlist)
-
-        _LOGGER.error("Not implemented.")
+        else:
+            raise NotImplementedError(
+                "This postprocessing mode is not implemented")
 
     def fasta_fmt(self, content):
         """
         Given a content dict return by refget for a sequence collection,
         convert it to a string that can be printed as a fasta file.
         """
-        return "\n".join(["\n".join([">" + x["name"],
-             x["sequence_digest"]["sequence"]]) for x in content])
+        return "\n".join(
+            ["\n".join([">" + x["name"], x["sequence_digest"]["sequence"]])
+             for x in content])
 
-    def load_seq(self, seq, checksum_function=None):
-        if not checksum_function:
-            checksum_function = self.checksum_function
+    def load_seq(self, seq):
         checksum = self.insert({'sequence': seq}, "sequence")
         _LOGGER.debug("Loaded {}".format(checksum))
         return checksum
 
-    def load_fasta(self, fa_file, checksum_function=None, lengths_only=False):
+    def load_fasta(self, fa_file, lengths_only=False):
         """
         Calculates checksums and loads each sequence in a fasta file into the
         database, and loads a level 2 collection checksum representing the
         entire collection into the database.
         """
-        if not checksum_function:
-            checksum_function = self.checksum_function        
         fa_object = parse_fasta(fa_file)
         asdlist = []
         for k in fa_object.keys():
@@ -126,7 +121,8 @@ class RefGetHenge(henge.Henge):
                 v = {'sequence': seq}
             if 'length' not in v.keys():
                 if 'sequence' not in v.keys():
-                    _LOGGER.error("Each sequence must have either length or a sequence.")
+                    _LOGGER.warning(
+                        "Each sequence must have either length or a sequence.")
                 else:
                     v['length'] = len(v['sequence'])
             if 'sequence' in v.keys():
@@ -176,12 +172,12 @@ class RefGetHenge(henge.Henge):
         if sum(ainb) > 1:
             ordA = list(filter(None.__ne__, [index(x, asdB) for x in
                                              xp('sequence_digest', asdA)]))
-            if (ordA == sorted(ordA)):
+            if ordA == sorted(ordA):
                 return_flag += CONTENT_A_ORDER
         if sum(bina) > 1:
             ordB = list(filter(None.__ne__, [index(x, asdA) for x in
                                              xp('sequence_digest', asdB)]))
-            if (ordB == sorted(ordB)):
+            if ordB == sorted(ordB):
                 return_flag += CONTENT_B_ORDER
 
         ainb_len = [x in xp('length', asdB) for x in xp('length', asdA)]
@@ -223,12 +219,15 @@ class RefGetHenge(henge.Henge):
         typeB = self.database[digestB + henge.ITEM_TYPE]
 
         if typeA != typeB:
-            _LOGGER.error("Can't compare objects of different types: {} vs {}".format(typeA, typeB))
+            _LOGGER.error("Can't compare objects of different types: {} vs {}".
+                          format(typeA, typeB))
 
         asdA = self.refget(digestA, reclimit=1)
         asdB = self.refget(digestB, reclimit=1)
         return self.compare_asds(asdA, asdB, explain=explain)
 
+
+# Static functions below (these don't require a database)
 
 def explain_flag(flag):
     """ Explains a compare flag """
@@ -237,8 +236,6 @@ def explain_flag(flag):
         if flag & 2**e:
             print(FLAGS[2**e])
 
-
-# Static functions below (these don't require a database)
 
 def parse_fasta(fa_file):
     _LOGGER.debug("Hashing {}".format(fa_file))
@@ -254,15 +251,3 @@ def parse_fasta(fa_file):
         fa_object = pyfaidx.Fasta(fa_file_unzipped)
         os.system("gzip {}".format(fa_file_unzipped))
     return fa_object
-
-def fasta_checksum(fa_file):
-    """
-    Just calculate checksum of fasta file without loading it.
-    """
-    fa_object = parse_fasta(fa_file)
-    content_checksums = {}
-    for k in fa_object.keys():
-        content_checksums[k] = self.checksum_function(str(fa_object[k]))
-    collection_string = ";".join([":".join(i) for i in content_checksums.items()])
-    collection_checksum = self.load_seq(collection_string)
-    return collection_checksum, content_checksums
