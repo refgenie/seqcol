@@ -1,15 +1,17 @@
-from copy import copy
 import henge
 import logmuse
 import os
-
 import pyfaidx
 import logging
-_LOGGER = logging.getLogger(__name__)
-henge.ITEM_TYPE = "_item_type"
 
 from .const import *
 
+from yacman import load_yaml
+from copy import copy
+
+
+_LOGGER = logging.getLogger(__name__)
+henge.ITEM_TYPE = "_item_type"
 SCHEMA_FILEPATH = os.path.join(
         os.path.dirname(__file__),
         "schemas")
@@ -32,7 +34,7 @@ class RefGetHenge(henge.Henge):
             serialized items stored in this henge.
         """
         def _load_schema(name):
-            return henge.load_yaml(os.path.join(SCHEMA_FILEPATH, name))
+            return load_yaml(os.path.join(SCHEMA_FILEPATH, name))
 
         # These are the item types that this henge can understand.
         if not schemas:
