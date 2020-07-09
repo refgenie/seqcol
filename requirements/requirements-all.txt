@@ -1,2 +1,2 @@
 pyfaidx
-yacman>=0.6.7
+yacman>=0.6.9

@@ -12,41 +12,31 @@ from copy import copy
 
 _LOGGER = logging.getLogger(__name__)
 henge.ITEM_TYPE = "_item_type"
-SCHEMA_FILEPATH = os.path.join(
-        os.path.dirname(__file__),
-        "schemas")
 
 
-class RefGetHenge(henge.Henge):
+class SeqColClient(henge.Henge):
     """
-    Extension of henge that accommodates refget sequences.
+    Extension of henge that accommodates collections of sequences.
     """
 
-    def __init__(self, database, schemas=None, henges=None, checksum_function=henge.md5):
+    def __init__(self, database, schemas=None, henges=None,
+                 checksum_function=henge.md5):
         """
         A user interface to insert and retrieve decomposable recursive unique
         identifiers (DRUIDs).
 
-        :param dict database: Dict-like lookup database with sequences and hashes.
+        :param dict database: Dict-like lookup database with sequences
+            and hashes
         :param dict schemas: One or more jsonschema schemas describing the
             data types stored by this Henge
-        :param function(str) -> str checksum_function: Default function to handle the digest of the
+        :param function(str) -> str checksum_function: Default function to
+            handle the digest of the
             serialized items stored in this henge.
         """
-        def _load_schema(name):
-            return load_yaml(os.path.join(SCHEMA_FILEPATH, name))
-
-        # These are the item types that this henge can understand.
-        if not schemas:
-            schemas = {
-                "sequence": _load_schema("sequence.yaml"),
-                "ASD": _load_schema("annotated_sequence_digest.yaml"),
-                "ASDList": _load_schema("ASDList.yaml"),
-                "ACDList": _load_schema("ACDList.yaml"),
-                "ACD": _load_schema("annotated_collection_digest.yaml")
-            }
-        super(RefGetHenge, self).__init__(database, schemas, henges=henges,
-                                          checksum_function=checksum_function)
+        super(SeqColClient, self).__init__(
+            database=database, schemas=schemas or INTERNAL_SCHEMAS,
+            henges=henges, checksum_function=checksum_function
+        )
 
     def refget(self, digest, reclimit=None, postprocess=None):
         item_type = self.database[digest + henge.ITEM_TYPE]
@@ -76,7 +66,7 @@ class RefGetHenge(henge.Henge):
 
     def fasta_fmt(self, content):
         """
-        Given a content dict return by refget for a sequence collection,
+        Given a content dict return by seqcol for a sequence collection,
         convert it to a string that can be printed as a fasta file.
         """
         return "\n".join(

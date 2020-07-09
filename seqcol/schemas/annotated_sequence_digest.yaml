@@ -1,5 +1,6 @@
 description: "Schema for an Annotated Sequence Digest; a digested Sequence plus metadata"
 type: object
+henge_class: ASD
 properties:
   name:
     type: string
@@ -9,15 +10,22 @@ properties:
     type: string
     enum: ["circular", "linear"]
     default: "linear"
-  sequence_digest:
-    type: string
-    description: "The sequence digest"
+  sequence:
+    description: "Schema for a single raw sequence"
+    henge_class: sequence
+    type: object
+    properties:
+      sequence:
+        type: string
+        description: "Actual sequence content"
+    required:
+      - sequence
 required:
   - length
   - name
   - topology
 recursive:
-  - sequence_digest
+  - sequence
 not:
   required:
-    - sequence  
+    - sequence

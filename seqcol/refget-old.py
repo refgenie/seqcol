@@ -51,10 +51,10 @@ class RefDB(object):
 
     def refget(self, checksum, lookup_table=None, reclimit=None):
         """
-        Recursive refget lookup implementation
+        Recursive seqcol lookup implementation
 
         :param str checksum: 
-        :param int reclimit: Limit the number of recursion layers in the refget lookup
+        :param int reclimit: Limit the number of recursion layers in the seqcol lookup
         :return str: Sequence corresponding to given checksum
         """
         if not lookup_table:
@@ -95,7 +95,7 @@ class RefDB(object):
 
     def fasta_fmt(self, content):
         """
-        Given a content dict return by refget for a sequence collection,
+        Given a content dict return by seqcol for a sequence collection,
         convert it to a string that can be printed as a fasta file.
         """
         return "\n".join(["\n".join(

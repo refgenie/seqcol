@@ -1,4 +1,5 @@
 description: "Schema for a list of ACDs; analogous to a collection of fasta files"
+henge_class: ACDList
 type: array
 items:
   type: object

@@ -1,4 +1,5 @@
 description: "Schema for a single raw sequence"
+henge_class: sequence
 type: object
 properties:
   sequence:

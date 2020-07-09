@@ -1,4 +1,4 @@
-# Refget digests from published refget v1.0 protocol
+# Refget digests from published seqcol v1.0 protocol
 # Retrieved July 2019
 # http://samtools.github.io/hts-specs/refget.html
 

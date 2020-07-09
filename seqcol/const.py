@@ -1,3 +1,9 @@
+import os
+
+
+def _schema_path(name):
+    return os.path.join(SCHEMA_FILEPATH, name)
+
 
 CONTENT_ALL_A_IN_B = 2**0
 CONTENT_ALL_B_IN_A = 2**1
@@ -27,3 +33,8 @@ FLAGS[LENGTHS_ANY_SHARED] = "LENGTHS_ANY_SHARED"
 FLAGS[NAMES_ANY_SHARED] = "NAMES_ANY_SHARED"
 FLAGS[CONTENT_A_ORDER] = "CONTENT_A_ORDER"
 FLAGS[CONTENT_B_ORDER] = "CONTENT_B_ORDER"
+
+# internal schemas paths determination
+SCHEMA_NAMES = ["sequence.yaml", "annotated_sequence_digest.yaml", "ASDList.yaml", "ACDList.yaml", "annotated_collection_digest.yaml"]
+SCHEMA_FILEPATH = os.path.join(os.path.dirname(__file__), "schemas")
+INTERNAL_SCHEMAS = [_schema_path(s) for s in SCHEMA_NAMES]

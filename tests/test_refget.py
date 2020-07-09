@@ -1,6 +1,6 @@
 import pytest
 import os
-from refget import RefGetHenge
+from seqcol import SeqColClient
 import tempfile
 
 DEMO_FILES = ["demo.fa", "demo2.fa", "demo3.fa", "demo4.fa", "demo5.fa"]
@@ -12,13 +12,13 @@ class TestGeneral:
         In contrast to the generic Henge object, RefGetHenge does not
         require schemas as input, they are predefined in the constructor
         """
-        assert isinstance(RefGetHenge({}), RefGetHenge)
+        assert isinstance(SeqColClient({}), SeqColClient)
 
 
 class TestFastaInserting:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_insert_works(self, fasta_name, fasta_path):
-        rgdb = RefGetHenge({})
+        rgdb = SeqColClient({})
         f = os.path.join(fasta_path, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         res = rgdb.load_fasta(f)
@@ -28,7 +28,7 @@ class TestFastaInserting:
 class TestRetrieval:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_retrieval_works(self, fasta_name, fasta_path):
-        rgdb = RefGetHenge({})
+        rgdb = SeqColClient({})
         f = os.path.join(fasta_path, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         d, asds = rgdb.load_fasta(f)
@@ -37,7 +37,7 @@ class TestRetrieval:
 
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_refget_works(self, fasta_name, fasta_path):
-        rgdb = RefGetHenge({})
+        rgdb = SeqColClient({})
         f = os.path.join(fasta_path, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         d, asds = rgdb.load_fasta(f)
@@ -52,7 +52,7 @@ class TestBoth:
         Verify that FASTA loaded, retrieved and decoded from RefGetHenge
         yields identical collection digest after loading
         """
-        rgdb = RefGetHenge({})
+        rgdb = SeqColClient({})
         f = os.path.join(fasta_path, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         d, asds = rgdb.load_fasta(f)

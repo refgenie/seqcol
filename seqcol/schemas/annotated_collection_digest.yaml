@@ -1,4 +1,5 @@
 description: "Schema for an Annotated Collection Digest; this is analogous to a single fasta file with metadata."
+henge_class: ACD
 type: object
 properties:
   name:

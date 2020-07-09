@@ -4,7 +4,7 @@ import os
 from setuptools import setup
 import sys
 
-PACKAGE = "refget"
+PACKAGE = "seqcol"
 
 # Additional keyword arguments for setup().
 extra = {}
@@ -33,7 +33,7 @@ setup(
     name=PACKAGE,
     packages=[PACKAGE],
     version=version,
-    description="Python implementation of refget protocol",
+    description="Python implementation of seqcol protocol",
     long_description=long_description,
     long_description_content_type='text/markdown',
     classifiers=[
@@ -45,16 +45,15 @@ setup(
         "Topic :: System :: Distributed Computing"
     ],
     keywords="genome, assembly, bioinformatics, reference, sequence",
-    url="https://github.com/databio/refget-py",
+    url="https://github.com/refgenie/seqcol",
     author=u"Nathan Sheffield, Michal Stolarczyk",
     author_email=u"nathan@code.databio.org", 
     license="BSD2",
     entry_points={
         "console_scripts": [
-            'refget = refget.refget:main'
+            'seqcol = seqcol.seqcol:main'
         ],
     },    
-    # package_data={"refget": [os.path.join("refget", "*")]},
     include_package_data=True,
     test_suite="tests",
     tests_require=(["mock", "pytest"]),
