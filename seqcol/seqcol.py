@@ -230,16 +230,19 @@ def explain_flag(flag):
 
 
 def parse_fasta(fa_file):
-    _LOGGER.debug("Hashing {}".format(fa_file))
+    """
+    Read in a gzipped or not gzipped FASTA file
+    """
     try:
-        fa_object = pyfaidx.Fasta(fa_file)
+        return pyfaidx.Fasta(fa_file)
     except pyfaidx.UnsupportedCompressionFormat:
         # pyfaidx can handle bgzip but not gzip; so we just hack it here and
-        # unzip the file for checksumming, then rezip it for the rest of the
-        # asset build.
-        # TODO: streamline this to avoid repeated compress/decompress
-        os.system("gunzip {}".format(fa_file))
-        fa_file_unzipped = fa_file.replace(".gz", "")
-        fa_object = pyfaidx.Fasta(fa_file_unzipped)
-        os.system("gzip {}".format(fa_file_unzipped))
-    return fa_object
+        # gunzip the file into a temporary one and read it in not to interfere
+        # with the original one.
+        from gzip import open as gzopen
+        from shutil import copyfileobj
+        from tempfile import NamedTemporaryFile
+        with gzopen(fa_file, 'r') as f_in:
+            with NamedTemporaryFile(mode='wb') as f_out:
+                copyfileobj(f_in, f_out)
+                return pyfaidx.Fasta(f_out.name)
