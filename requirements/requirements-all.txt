@@ -1,2 +1,4 @@
+biopython
 pyfaidx
 yacman>=0.6.9
+henge
