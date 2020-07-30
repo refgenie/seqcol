@@ -87,14 +87,14 @@ class SeqColClient(henge.Henge):
         asdlist = []
         for k in fa_object.keys():
             seq = str(fa_object[k])
-            if lengths_only:
-                seq_digest = ""
-            else:
-                seq_digest = self.load_seq(seq)
+            # if lengths_only:
+            #     seq_digest = ""
+            # else:
+            #     seq_digest = self.load_seq(seq)
             asdlist.append({'name': k,
                           'length': len(seq),
                           'topology': 'linear',
-                          'sequence': {'sequence': seq}})
+                          'sequence': {'sequence': seq if not lengths_only else ""}})
 
         _LOGGER.debug(asdlist)
         collection_checksum = self.insert(asdlist, 'ASDList')
