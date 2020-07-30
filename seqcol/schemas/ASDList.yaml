@@ -31,6 +31,3 @@ items:
     - topology
   recursive:
     - sequence
-  not:
-    required:
-      - sequence

@@ -6,7 +6,6 @@ import logging
 
 from .const import *
 
-from yacman import load_yaml
 from copy import copy
 
 
@@ -93,9 +92,9 @@ class SeqColClient(henge.Henge):
             else:
                 seq_digest = self.load_seq(seq)
             asdlist.append({'name': k,
-                          'length': len(seq), 
+                          'length': len(seq),
                           'topology': 'linear',
-                          'sequence_digest': seq_digest})
+                          'sequence': {'sequence': seq}})
 
         _LOGGER.debug(asdlist)
         collection_checksum = self.insert(asdlist, 'ASDList')
