@@ -3,7 +3,7 @@ import os
 from seqcol import SeqColClient
 import tempfile
 
-DEMO_FILES = ["demo.fa", "demo2.fa", "demo3.fa", "demo4.fa", "demo5.fa"]
+DEMO_FILES = ["demo.fa.gz", "demo2.fa", "demo3.fa", "demo4.fa", "demo5.fa.gz"]
 
 
 class TestGeneral:
@@ -35,3 +35,6 @@ class TestRetrieval:
         # convert integers in the dicts to strings
         lst = [{k: str(v) if isinstance(v, int) else v for k, v in asd.items()} for asd in asds]
         assert scc.retrieve(d) == lst
+
+
+# TODO: test gzipped FASTA, test compare

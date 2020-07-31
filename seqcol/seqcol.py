@@ -185,7 +185,8 @@ def parse_fasta(fa_file):
         from gzip import open as gzopen
         from shutil import copyfileobj
         from tempfile import NamedTemporaryFile
-        with gzopen(fa_file, 'r') as f_in:
-            with NamedTemporaryFile(mode='wb') as f_out:
-                copyfileobj(f_in, f_out)
-                return pyfaidx.Fasta(f_out.name)
+        with gzopen(fa_file, 'rt') as f_in, \
+                NamedTemporaryFile(mode='w+t', suffix=".fa") as f_out:
+            f_out.writelines(f_in.read())
+            f_out.seek(0)
+            return pyfaidx.Fasta(f_out.name)
