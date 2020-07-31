@@ -35,10 +35,14 @@ FLAGS = {
     CONTENT_B_ORDER: "CONTENT_B_ORDER"
 }
 
+KNOWN_TOPOS = ["linear", "circular"]
+NAME_KEY = "name"
+SEQ_KEY = "sequence"
+TOPO_KEY = "topology"
+LEN_KEY = "length"
+
 # internal schemas paths determination
-SCHEMA_NAMES = [
-    "sequence.yaml", "annotated_sequence_digest.yaml", "ASDList.yaml",
-    "ACDList.yaml", "annotated_collection_digest.yaml"
-]
+ASL_NAME = "AnnotatedSequenceList"
+SCHEMA_NAMES = [ASL_NAME + ".yaml"]
 SCHEMA_FILEPATH = os.path.join(os.path.dirname(__file__), "schemas")
 INTERNAL_SCHEMAS = [_schema_path(s) for s in SCHEMA_NAMES]

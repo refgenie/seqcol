@@ -1,8 +1,9 @@
-import henge
-import logmuse
 import os
 import pyfaidx
 import logging
+
+import logmuse
+import henge
 
 from .const import *
 
@@ -37,99 +38,36 @@ class SeqColClient(henge.Henge):
             henges=henges, checksum_function=checksum_function
         )
 
-    def refget(self, digest, reclimit=None, postprocess=None):
-        item_type = self.database[digest + henge.ITEM_TYPE]
-        full_data = self.retrieve(digest, reclimit=reclimit)
-        if not postprocess:
-            return full_data
-
-        if postprocess == "simplify":
-            if item_type == "sequence":
-                return full_data['sequence']
-            elif item_type == "asd":
-                asdlist = {}
-                for x in full_data:
-                    asdlist[x['name']] = x['sequence_digest']['sequence']
-                return asdlist
-        elif postprocess == "fasta":
-            if item_type == "sequence":
-                raise Exception("can't postprocess a sequence into fasta")
-            elif item_type == "asd":
-                asdlist = {}
-                for x in full_data:
-                    asdlist[x['name']] = x['sequence_digest']['sequence']                
-                return self.fasta_fmt(asdlist)
-        else:
-            raise NotImplementedError(
-                "This postprocessing mode is not implemented")
-
-    def fasta_fmt(self, content):
+    def load_fasta(self, fa_file, skip_seq=False, topology_default="linear"):
         """
-        Given a content dict return by seqcol for a sequence collection,
-        convert it to a string that can be printed as a fasta file.
-        """
-        return "\n".join(
-            ["\n".join([">" + x["name"], x["sequence_digest"]["sequence"]])
-             for x in content])
+        Load a sequence collection into the database
 
-    def load_seq(self, seq):
-        checksum = self.insert({'sequence': seq}, "sequence")
-        _LOGGER.debug("Loaded {}".format(checksum))
-        return checksum
-
-    def load_fasta(self, fa_file, lengths_only=False):
+        :param str fa_file: path to the FASTA file to parse and load
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param str topology_default: the default topology assigned to
+            every sequence
         """
-        Calculates checksums and loads each sequence in a fasta file into the
-        database, and loads a level 2 collection checksum representing the
-        entire collection into the database.
-        """
+        # TODO: any systematic way infer topology from a FASTA file?
+        if topology_default not in KNOWN_TOPOS:
+            raise ValueError(f"Invalid topology ({topology_default}). "
+                             f"Choose from: {','.join(KNOWN_TOPOS)}")
         fa_object = parse_fasta(fa_file)
-        asdlist = []
+        aslist = []
         for k in fa_object.keys():
             seq = str(fa_object[k])
-            # if lengths_only:
-            #     seq_digest = ""
-            # else:
-            #     seq_digest = self.load_seq(seq)
-            asdlist.append({'name': k,
-                          'length': len(seq),
-                          'topology': 'linear',
-                          'sequence': {'sequence': seq if not lengths_only else ""}})
+            aslist.append(
+                {NAME_KEY: k, LEN_KEY: len(seq), TOPO_KEY: topology_default,
+                 SEQ_KEY: {"" if skip_seq else SEQ_KEY: seq}}
+            )
+        collection_checksum = self.insert(aslist, ASL_NAME)
+        _LOGGER.debug(f"Loaded {ASL_NAME}: {aslist}")
+        return collection_checksum, aslist
 
-        _LOGGER.debug(asdlist)
-        collection_checksum = self.insert(asdlist, 'ASDList')
-        return collection_checksum, asdlist
-
-    def load_seqset(self, seqset):
-        """
-        Convert a 'seqset', which is a dict with names as sequence names and
-        values as sequences, into the 'asdlist' required for henge insert.
-        """
-        seqset_new = copy(seqset)
-        for k, v in seqset.items():
-            if isinstance(v, str):
-                seq = v
-                v = {'sequence': seq}
-            if 'length' not in v.keys():
-                if 'sequence' not in v.keys():
-                    _LOGGER.warning(
-                        "Each sequence must have either length or a sequence.")
-                else:
-                    v['length'] = len(v['sequence'])
-            if 'sequence' in v.keys():
-                v['sequence_digest'] = self.load_seq(seq)
-                del v['sequence']
-            if 'name' not in v.keys():
-                v['name'] = k
-            if 'toplogy' not in v.keys():
-                v['toplogy'] = 'linear'
-
-            seqset_new[k] = v
-
-        collection_checksum = self.insert(list(seqset_new.values()), 'ASDList')
-        return collection_checksum, seqset_new
-
-    def compare_asds(self, asdA, asdB, explain=False):
+    @staticmethod
+    def compare_asds(asdA, asdB, explain=False):
         """
         Compare Annotated Sequence Digests (ASDs) -- digested sequences and metadata
 
@@ -137,6 +75,25 @@ class SeqColClient(henge.Henge):
         :param str asdB: ASD for second sequence collection to compare.
         :param bool explain: Print an explanation of the flag? [Default: False]
         """
+
+        def _xp(prop, lst):
+            """ Extract property from a list of dicts """
+            return list(map(lambda x: x[prop], lst))
+
+        def _index(x, lst):
+            """ Find an index of a sequence element in a list of dicts """
+            try:
+                return _xp(SEQ_KEY, lst).index(x)
+            except:
+                return None
+
+        def _get_common_content(lstA, lstB):
+            """
+            Find the intersection between two list of dicts with sequences
+            """
+            return list(filter(None.__ne__,
+                               [_index(x, lstB) for x in _xp(SEQ_KEY, lstA)]))
+
         # Not ideal, but we expect these to return lists, but if the item was
         # singular only a dict is returned
         if not isinstance(asdA, list):
@@ -144,42 +101,29 @@ class SeqColClient(henge.Henge):
         if not isinstance(asdB, list):
             asdB = [asdB]
 
-        def xp(prop, lst):
-            """ Extract property """
-            return list(map(lambda x: x[prop], lst))
-
-        ainb = [x in xp('sequence_digest', asdB) for x in
-                xp('sequence_digest', asdA)]
-        bina = [x in xp('sequence_digest', asdA) for x in
-                xp('sequence_digest', asdB)]
-
-        def index(x, lst):
-            try:
-                return xp('sequence_digest', lst).index(x)
-            except:
-                return None
+        ainb = [x in _xp(SEQ_KEY, asdB) for x in
+                _xp(SEQ_KEY, asdA)]
+        bina = [x in _xp(SEQ_KEY, asdA) for x in
+                _xp(SEQ_KEY, asdB)]
 
         return_flag = 0  # initialize
         if sum(ainb) > 1:
-            ordA = list(filter(None.__ne__, [index(x, asdB) for x in
-                                             xp('sequence_digest', asdA)]))
+            ordA = _get_common_content(asdA, asdB)
             if ordA == sorted(ordA):
                 return_flag += CONTENT_A_ORDER
         if sum(bina) > 1:
-            ordB = list(filter(None.__ne__, [index(x, asdA) for x in
-                                             xp('sequence_digest', asdB)]))
+            ordB = _get_common_content(asdB, asdA)
             if ordB == sorted(ordB):
                 return_flag += CONTENT_B_ORDER
 
-        ainb_len = [x in xp('length', asdB) for x in xp('length', asdA)]
-        bina_len = [x in xp('length', asdA) for x in xp('length', asdB)]
+        ainb_len = [x in _xp(LEN_KEY, asdB) for x in _xp(LEN_KEY, asdA)]
+        bina_len = [x in _xp(LEN_KEY, asdA) for x in _xp(LEN_KEY, asdB)]
 
-        ainb_name = [x in xp('name', asdB) for x in xp('name', asdA)]
-        bina_name = [x in xp('name', asdA) for x in xp('name', asdB)]
+        ainb_name = [x in _xp(NAME_KEY, asdB) for x in _xp(NAME_KEY, asdA)]
+        bina_name = [x in _xp(NAME_KEY, asdA) for x in _xp(NAME_KEY, asdB)]
 
         if all(ainb):
             return_flag += CONTENT_ALL_A_IN_B
-
         if all(bina):
             return_flag += CONTENT_ALL_B_IN_A
 
@@ -210,11 +154,11 @@ class SeqColClient(henge.Henge):
         typeB = self.database[digestB + henge.ITEM_TYPE]
 
         if typeA != typeB:
-            _LOGGER.error("Can't compare objects of different types: {} vs {}".
-                          format(typeA, typeB))
+            _LOGGER.error(f"Can't compare objects of different types: "
+                          f"{typeA} vs {typeB}")
 
-        asdA = self.refget(digestA, reclimit=1)
-        asdB = self.refget(digestB, reclimit=1)
+        asdA = self.retrieve(digestA, reclimit=1)
+        asdB = self.retrieve(digestB, reclimit=1)
         return self.compare_asds(asdA, asdB, explain=explain)
 
 
@@ -222,7 +166,7 @@ class SeqColClient(henge.Henge):
 
 def explain_flag(flag):
     """ Explains a compare flag """
-    print("Flag: {}\nBinary: {}\n".format(flag, bin(flag)))
+    print(f"Flag: {flag}\nBinary: {bin(flag)}\n")
     for e in range(0, 13):
         if flag & 2**e:
             print(FLAGS[2**e])

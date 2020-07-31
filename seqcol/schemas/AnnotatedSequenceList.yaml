@@ -1,5 +1,5 @@
 description: "Schema for List of ASDs"
-henge_class: ASDList
+henge_class: "AnnotatedSequenceList"
 recursive: true
 type: array
 items: 
