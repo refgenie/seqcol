@@ -1,3 +1,4 @@
 biopython
 pyfaidx
-henge>=0.0.3
+# henge>=0.0.3
+-e git+git://github.com/databio/henge@master#egg=henge
