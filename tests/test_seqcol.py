@@ -1,9 +1,12 @@
 import pytest
-import os
 from seqcol import SeqColClient
-import tempfile
+from seqcol.const import *
 
 DEMO_FILES = ["demo.fa.gz", "demo2.fa", "demo3.fa", "demo4.fa", "demo5.fa.gz"]
+
+CMP_SETUP = [((CONTENT_ALL_A_IN_B + CONTENT_ALL_B_IN_A + LENGTHS_ALL_A_IN_B + LENGTHS_ALL_B_IN_A + NAMES_ALL_A_IN_B + NAMES_ALL_B_IN_A + TOPO_ALL_B_IN_A + TOPO_ALL_A_IN_B + CONTENT_A_ORDER + CONTENT_B_ORDER), DEMO_FILES[1], DEMO_FILES[1]),
+             ((CONTENT_ALL_A_IN_B + LENGTHS_ALL_A_IN_B + NAMES_ALL_A_IN_B + TOPO_ALL_A_IN_B + TOPO_ALL_B_IN_A + CONTENT_A_ORDER + CONTENT_B_ORDER), DEMO_FILES[0], DEMO_FILES[1]),
+             ((LENGTHS_ALL_A_IN_B + LENGTHS_ALL_B_IN_A + TOPO_ALL_A_IN_B + TOPO_ALL_B_IN_A), DEMO_FILES[2], DEMO_FILES[4])]
 
 
 class TestGeneral:
@@ -37,4 +40,10 @@ class TestRetrieval:
         assert scc.retrieve(d) == lst
 
 
-# TODO: test gzipped FASTA, test compare
+class TestCompare:
+    @pytest.mark.parametrize(["code", "fasta1", "fasta2"], CMP_SETUP)
+    def test_fasta_compare(self, code, fasta1, fasta2, fasta_path):
+        scc = SeqColClient({})
+        d, _ = scc.load_fasta(os.path.join(fasta_path, fasta1))
+        d2, _ = scc.load_fasta(os.path.join(fasta_path, fasta2))
+        assert scc.compare(d, d2) == code
