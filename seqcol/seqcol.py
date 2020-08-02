@@ -122,6 +122,9 @@ class SeqColClient(henge.Henge):
         ainb_name = [x in _xp(NAME_KEY, asdB) for x in _xp(NAME_KEY, asdA)]
         bina_name = [x in _xp(NAME_KEY, asdA) for x in _xp(NAME_KEY, asdB)]
 
+        ainb_topo = [x in _xp(TOPO_KEY, asdB) for x in _xp(TOPO_KEY, asdA)]
+        bina_topo = [x in _xp(TOPO_KEY, asdA) for x in _xp(TOPO_KEY, asdB)]
+
         if all(ainb):
             return_flag += CONTENT_ALL_A_IN_B
         if all(bina):
@@ -131,6 +134,11 @@ class SeqColClient(henge.Henge):
             return_flag += NAMES_ALL_A_IN_B
         if all(bina_name):
             return_flag += NAMES_ALL_B_IN_A
+
+        if all(ainb_topo):
+            return_flag += TOPO_ALL_A_IN_B
+        if all(bina_topo):
+            return_flag += TOPO_ALL_B_IN_A
 
         if all(ainb_len):
             return_flag += LENGTHS_ALL_A_IN_B
