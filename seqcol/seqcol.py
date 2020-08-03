@@ -1,6 +1,7 @@
 import os
 import pyfaidx
 import logging
+from .hash_functions import trunc512_digest
 
 import logmuse
 import henge
@@ -20,7 +21,7 @@ class SeqColClient(henge.Henge):
     """
 
     def __init__(self, database, schemas=None, henges=None,
-                 checksum_function=henge.md5):
+                 checksum_function=trunc512_digest):
         """
         A user interface to insert and retrieve decomposable recursive unique
         identifiers (DRUIDs).
