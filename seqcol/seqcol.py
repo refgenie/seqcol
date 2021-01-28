@@ -21,8 +21,8 @@ class SeqColClient(refget.RefGetClient):
     Extension of henge that accommodates collections of sequences.
     """
 
-    def __init__(self, refget_api=None, database={}, schemas=None, henges=None,
-                 checksum_function=henge.md5):
+    def __init__(self, api_url_base=None, database={}, schemas=None, henges=None,
+                 checksum_function=trunc512_digest):
         """
         A user interface to insert and retrieve decomposable recursive unique
         identifiers (DRUIDs).
@@ -35,7 +35,7 @@ class SeqColClient(refget.RefGetClient):
             handle the digest of the
             serialized items stored in this henge.
         """
-        super(SeqColClient, self).__init__(api_url_base=refget_api,
+        super(SeqColClient, self).__init__(api_url_base=api_url_base,
             database=database, schemas=schemas or INTERNAL_SCHEMAS,
             henges=henges, checksum_function=checksum_function
         )
