@@ -1,27 +1,28 @@
+import henge
+import logging
+import logmuse
 import os
 import pyfaidx
-import logging
-from .hash_functions import trunc512_digest
-
-import logmuse
-import henge
-
-from .const import *
+import refget
 
 from copy import copy
+
+from .hash_functions import trunc512_digest
+from .const import *
+
 
 
 _LOGGER = logging.getLogger(__name__)
 henge.ITEM_TYPE = "_item_type"
 
 
-class SeqColClient(henge.Henge):
+class SeqColClient(refget.RefGetClient):
     """
     Extension of henge that accommodates collections of sequences.
     """
 
-    def __init__(self, database, schemas=None, henges=None,
-                 checksum_function=trunc512_digest):
+    def __init__(self, refget_api=None, database={}, schemas=None, henges=None,
+                 checksum_function=henge.md5):
         """
         A user interface to insert and retrieve decomposable recursive unique
         identifiers (DRUIDs).
@@ -34,10 +35,11 @@ class SeqColClient(henge.Henge):
             handle the digest of the
             serialized items stored in this henge.
         """
-        super(SeqColClient, self).__init__(
+        super(SeqColClient, self).__init__(api_url_base=refget_api,
             database=database, schemas=schemas or INTERNAL_SCHEMAS,
             henges=henges, checksum_function=checksum_function
         )
+        _LOGGER.info("Initializing SeqColClient")
 
     def load_fasta(self, fa_file, skip_seq=False, topology_default="linear"):
         """
@@ -67,10 +69,39 @@ class SeqColClient(henge.Henge):
         _LOGGER.debug(f"Loaded {ASL_NAME}: {aslist}")
         return collection_checksum, aslist
 
+    def load_fasta2(self, fa_file, skip_seq=False, topology_default="linear"):
+        """
+        Load a sequence collection into the database
+
+        :param str fa_file: path to the FASTA file to parse and load
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param str topology_default: the default topology assigned to
+            every sequence
+        """
+        # TODO: any systematic way infer topology from a FASTA file?
+        _LOGGER.info("Loading fasta file...")
+        fa_object = parse_fasta(fa_file)
+        aslist = []
+        for k in fa_object.keys():
+            seq = str(fa_object[k])
+            _LOGGER.info("Loading key: {k} / Length: {l}...".format(k=k, l=len(seq)))
+            aslist.append(
+                {NAME_KEY: k, LEN_KEY: len(seq), TOPO_KEY: topology_default,
+                 SEQ_KEY: "" if skip_seq else seq}
+            )
+        _LOGGER.info("Inserting into database...")
+        collection_checksum = self.insert(aslist, "RawSeqCol")
+        _LOGGER.debug(f"Loaded {ASL_NAME}: {aslist}")
+        return collection_checksum, aslist
+
+
     @staticmethod
     def compare_asds(asdA, asdB, explain=False):
         """
-        Compare Annotated Sequence Digests (ASDs) -- digested sequences and metadata
+        Compare Annotated Sequence Digests (ASDs) -- digested sequences and `data
 
         :param str asdA: ASD for first sequence collection to compare.
         :param str asdB: ASD for second sequence collection to compare.
@@ -169,6 +200,18 @@ class SeqColClient(henge.Henge):
         asdA = self.retrieve(digestA, reclimit=1)
         asdB = self.retrieve(digestB, reclimit=1)
         return self.compare_asds(asdA, asdB, explain=explain)
+
+    def retrieve(self, druid, reclimit=None, raw=False):
+        try:
+            return super(SeqColClient, self).retrieve(druid, reclimit, raw)
+        except henge.NotFoundException as e:
+            _LOGGER.debug(e)
+            try:
+                return self.refget(druid)
+            except Exception as e:
+                _LOGGER.debug(e)
+                raise e
+                return henge.NotFoundException("{} not found in database, or in refget.".format(druid))
 
 
 # Static functions below (these don't require a database)
