@@ -1,1 +1,3 @@
-# refget-py docs
+# SeqCol docs
+
+Python package for sequence collections.
