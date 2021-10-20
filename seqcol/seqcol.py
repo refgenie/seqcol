@@ -6,6 +6,8 @@ import pyfaidx
 import refget
 
 from copy import copy
+from functools import reduce
+from itertools import compress
 
 from .hash_functions import trunc512_digest
 from .const import *
@@ -96,6 +98,52 @@ class SeqColClient(refget.RefGetClient):
         collection_checksum = self.insert(aslist, "RawSeqCol")
         _LOGGER.debug(f"Loaded {ASL_NAME}: {aslist}")
         return collection_checksum, aslist
+
+
+    def compare_digests(self, digestA, digestB):
+        A = self.retrieve(digestA)
+        B = self.retrieve(digestB)
+        return self.compat_all(A, B)
+
+    @staticmethod
+    def compat(A, B):
+        """
+        New compatibility function for array-based data model.
+        """
+        ainb = [x in B for x in A]
+        bina = [x in A for x in B]
+        if any(ainb):
+            order = list(compress(B, bina)) == list(compress(A, ainb))
+        else:
+            order = False
+
+        any(ainb)
+
+        flag = 0
+        flag += 2 if all(ainb) else 0
+        flag += 4 if all(bina) else 0
+        flag += 8 if order else 0
+        flag += 1 if any(ainb) else 0
+        result = {  
+            "any-elements-shared": any(ainb),
+            "a-subset-of-b": all(ainb),
+            "b-subset-of-a": all(bina),
+            "order-match": order,
+            "flag": flag
+        }
+        return result
+
+    @staticmethod
+    def compat_all(A, B):
+        all_keys=(list(A.keys()) + list(set(B.keys()) - set(list(A.keys()))))
+        result = {}
+        for k in all_keys:
+            if k not in A or k not in B:
+                result[k] = { "flag": -1 }
+            else:
+                result[k] = SeqColClient.compat(A[k], B[k])
+        # result["all"] = reduce(lambda x,y: x['flag']&y['flag'], list(result.values()))
+        return result
 
 
     @staticmethod
