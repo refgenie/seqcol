@@ -1,3 +1,4 @@
 biopython
 pyfaidx
-# henge>=0.0.4
+refget
+henge>=0.0.4

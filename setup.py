@@ -19,15 +19,11 @@ with open("requirements/requirements-all.txt", "r") as reqs_file:
 
 extra["install_requires"] = DEPENDENCIES
 
-with open("{}/_version.py".format(PACKAGE), 'r') as versionfile:
+with open("{}/_version.py".format(PACKAGE), "r") as versionfile:
     version = versionfile.readline().split()[-1].strip("\"'\n")
 
-# Handle the pypi README formatting.
-try:
-    import pypandoc
-    long_description = pypandoc.convert_file('README.md', 'rst')
-except(IOError, ImportError, OSError):
-    long_description = open('README.md').read()
+with open("README.md") as f:
+    long_description = f.read()
 
 setup(
     name=PACKAGE,
@@ -35,28 +31,28 @@ setup(
     version=version,
     description="Python implementation of seqcol protocol",
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     classifiers=[
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
-        "Topic :: System :: Distributed Computing"
+        "Topic :: System :: Distributed Computing",
     ],
     keywords="genome, assembly, bioinformatics, reference, sequence",
     url="https://github.com/refgenie/seqcol",
     author=u"Nathan Sheffield, Michal Stolarczyk",
-    author_email=u"nathan@code.databio.org", 
+    author_email=u"nathan@code.databio.org",
     license="BSD2",
     entry_points={
-        "console_scripts": [
-            'seqcol = seqcol.seqcol:main'
-        ],
-    },    
+        "console_scripts": ["seqcol = seqcol.seqcol:main"],
+    },
     include_package_data=True,
     test_suite="tests",
     tests_require=(["mock", "pytest"]),
-    setup_requires=(["pytest-runner"] if {"test", "pytest", "ptr"} & set(sys.argv) else []),
+    setup_requires=(
+        ["pytest-runner"] if {"test", "pytest", "ptr"} & set(sys.argv) else []
+    ),
     **extra
 )

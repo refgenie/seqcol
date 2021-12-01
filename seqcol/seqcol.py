@@ -1,27 +1,35 @@
+import henge
+import logging
+import logmuse
 import os
 import pyfaidx
-import logging
-from .hash_functions import trunc512_digest
-
-import logmuse
-import henge
-
-from .const import *
+import refget
 
 from copy import copy
+from functools import reduce
+from itertools import compress
+
+from .hash_functions import trunc512_digest
+from .const import *
 
 
 _LOGGER = logging.getLogger(__name__)
 henge.ITEM_TYPE = "_item_type"
 
 
-class SeqColClient(henge.Henge):
+class SeqColClient(refget.RefGetClient):
     """
     Extension of henge that accommodates collections of sequences.
     """
 
-    def __init__(self, database, schemas=None, henges=None,
-                 checksum_function=trunc512_digest):
+    def __init__(
+        self,
+        api_url_base=None,
+        database={},
+        schemas=None,
+        henges=None,
+        checksum_function=trunc512_digest,
+    ):
         """
         A user interface to insert and retrieve decomposable recursive unique
         identifiers (DRUIDs).
@@ -35,9 +43,13 @@ class SeqColClient(henge.Henge):
             serialized items stored in this henge.
         """
         super(SeqColClient, self).__init__(
-            database=database, schemas=schemas or INTERNAL_SCHEMAS,
-            henges=henges, checksum_function=checksum_function
+            api_url_base=api_url_base,
+            database=database,
+            schemas=schemas or INTERNAL_SCHEMAS,
+            henges=henges,
+            checksum_function=checksum_function,
         )
+        _LOGGER.info("Initializing SeqColClient")
 
     def load_fasta(self, fa_file, skip_seq=False, topology_default="linear"):
         """
@@ -53,24 +65,141 @@ class SeqColClient(henge.Henge):
         """
         # TODO: any systematic way infer topology from a FASTA file?
         if topology_default not in KNOWN_TOPOS:
-            raise ValueError(f"Invalid topology ({topology_default}). "
-                             f"Choose from: {','.join(KNOWN_TOPOS)}")
+            raise ValueError(
+                f"Invalid topology ({topology_default}). "
+                f"Choose from: {','.join(KNOWN_TOPOS)}"
+            )
         fa_object = parse_fasta(fa_file)
         aslist = []
         for k in fa_object.keys():
             seq = str(fa_object[k])
             aslist.append(
-                {NAME_KEY: k, LEN_KEY: len(seq), TOPO_KEY: topology_default,
-                 SEQ_KEY: {"" if skip_seq else SEQ_KEY: seq}}
+                {
+                    NAME_KEY: k,
+                    LEN_KEY: len(seq),
+                    TOPO_KEY: topology_default,
+                    SEQ_KEY: {"" if skip_seq else SEQ_KEY: seq},
+                }
             )
         collection_checksum = self.insert(aslist, ASL_NAME)
         _LOGGER.debug(f"Loaded {ASL_NAME}: {aslist}")
         return collection_checksum, aslist
 
+    def load_fasta2(self, fa_file, skip_seq=False, topology_default="linear"):
+        """
+        Load a sequence collection into the database
+
+        :param str fa_file: path to the FASTA file to parse and load
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param str topology_default: the default topology assigned to
+            every sequence
+        """
+        # TODO: any systematic way infer topology from a FASTA file?
+        _LOGGER.info("Loading fasta file...")
+        fa_object = parse_fasta(fa_file)
+        aslist = []
+        for k in fa_object.keys():
+            seq = str(fa_object[k])
+            _LOGGER.info("Loading key: {k} / Length: {l}...".format(k=k, l=len(seq)))
+            aslist.append(
+                {
+                    NAME_KEY: k,
+                    LEN_KEY: len(seq),
+                    TOPO_KEY: topology_default,
+                    SEQ_KEY: "" if skip_seq else seq,
+                }
+            )
+        _LOGGER.info("Inserting into database...")
+        collection_checksum = self.insert(aslist, "RawSeqCol")
+        _LOGGER.debug(f"Loaded {ASL_NAME}: {aslist}")
+        return collection_checksum, aslist
+
+    def compare_digests(self, digestA, digestB):
+        A = self.retrieve(digestA, reclimit=1)
+        B = self.retrieve(digestB, reclimit=1)
+        _LOGGER.info(A)
+        _LOGGER.info(B)
+        return self.compat_all(A, B)
+
+    @staticmethod
+    def compat(A, B):
+        """
+        New compatibility function for array-based data model.
+        """
+        ainb = [x in B for x in A]
+        bina = [x in A for x in B]
+        if any(ainb):
+            order = list(compress(B, bina)) == list(compress(A, ainb))
+        else:
+            order = False
+
+        any(ainb)
+
+        flag = 0
+        flag += 2 if all(ainb) else 0
+        flag += 4 if all(bina) else 0
+        flag += 8 if order else 0
+        flag += 1 if any(ainb) else 0
+        result = {
+            "any-elements-shared": any(ainb),
+            "all-a-in-b": all(ainb),
+            "all-b-in-a": all(bina),
+            "order-match": order,
+            "flag": flag,
+        }
+        return result
+
+    @staticmethod
+    def compat_all(A, B):
+        all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
+        result = {}
+        flipped_format = {
+            "any-elements-shared": [],
+            "no-elements-shared": [],
+            "all-a-in-b": [],
+            "all-b-in-a": [],
+            "order-match": [],
+            "only-in-a": [],
+            "only-in-b": [],
+        }
+        for k in all_keys:
+            _LOGGER.info(k)
+            if k not in A:
+                result[k] = {"flag": -1}
+                flipped_format["only-in-b"].append(k)
+            elif k not in B:
+                flipped_format["only-in-a"].append(k)
+            else:
+                v = SeqColClient.compat(A[k], B[k])
+                result[k] = v
+                if v["any-elements-shared"]:
+                    flipped_format["any-elements-shared"].append(k)
+                else:
+                    flipped_format["no-elements-shared"].append(k)
+                if v["all-a-in-b"]:
+                    flipped_format["all-a-in-b"].append(k)
+                if v["all-b-in-a"]:
+                    flipped_format["all-b-in-a"].append(k)
+                if v["order-match"]:
+                    flipped_format["order-match"].append(k)
+
+        # result = {
+        #     "any-elements-shared": any(ainb),
+        #     "all-a-in-b": all(ainb),
+        #     "all-b-in-a": all(bina),
+        #     "order-match": order,
+        #     "flag": flag
+        # }
+
+        return flipped_format
+
     @staticmethod
     def compare_asds(asdA, asdB, explain=False):
         """
-        Compare Annotated Sequence Digests (ASDs) -- digested sequences and metadata
+        Compare Annotated Sequence Digests (ASDs) -- digested sequences and `data
 
         :param str asdA: ASD for first sequence collection to compare.
         :param str asdB: ASD for second sequence collection to compare.
@@ -78,11 +207,11 @@ class SeqColClient(henge.Henge):
         """
 
         def _xp(prop, lst):
-            """ Extract property from a list of dicts """
+            """Extract property from a list of dicts"""
             return list(map(lambda x: x[prop], lst))
 
         def _index(x, lst):
-            """ Find an index of a sequence element in a list of dicts """
+            """Find an index of a sequence element in a list of dicts"""
             try:
                 return _xp(SEQ_KEY, lst).index(x)
             except:
@@ -92,8 +221,9 @@ class SeqColClient(henge.Henge):
             """
             Find the intersection between two list of dicts with sequences
             """
-            return list(filter(None.__ne__,
-                               [_index(x, lstB) for x in _xp(SEQ_KEY, lstA)]))
+            return list(
+                filter(None.__ne__, [_index(x, lstB) for x in _xp(SEQ_KEY, lstA)])
+            )
 
         # Not ideal, but we expect these to return lists, but if the item was
         # singular only a dict is returned
@@ -102,10 +232,8 @@ class SeqColClient(henge.Henge):
         if not isinstance(asdB, list):
             asdB = [asdB]
 
-        ainb = [x in _xp(SEQ_KEY, asdB) for x in
-                _xp(SEQ_KEY, asdA)]
-        bina = [x in _xp(SEQ_KEY, asdA) for x in
-                _xp(SEQ_KEY, asdB)]
+        ainb = [x in _xp(SEQ_KEY, asdB) for x in _xp(SEQ_KEY, asdA)]
+        bina = [x in _xp(SEQ_KEY, asdA) for x in _xp(SEQ_KEY, asdB)]
 
         return_flag = 0  # initialize
         if sum(ainb) > 1:
@@ -163,22 +291,38 @@ class SeqColClient(henge.Henge):
         typeB = self.database[digestB + henge.ITEM_TYPE]
 
         if typeA != typeB:
-            _LOGGER.error(f"Can't compare objects of different types: "
-                          f"{typeA} vs {typeB}")
+            _LOGGER.error(
+                f"Can't compare objects of different types: " f"{typeA} vs {typeB}"
+            )
 
         asdA = self.retrieve(digestA, reclimit=1)
         asdB = self.retrieve(digestB, reclimit=1)
         return self.compare_asds(asdA, asdB, explain=explain)
 
+    def retrieve(self, druid, reclimit=None, raw=False):
+        try:
+            return super(SeqColClient, self).retrieve(druid, reclimit, raw)
+        except henge.NotFoundException as e:
+            _LOGGER.debug(e)
+            try:
+                return self.refget(druid)
+            except Exception as e:
+                _LOGGER.debug(e)
+                raise e
+                return henge.NotFoundException(
+                    "{} not found in database, or in refget.".format(druid)
+                )
+
 
 # Static functions below (these don't require a database)
 
+
 def explain_flag(flag):
-    """ Explains a compare flag """
+    """Explains a compare flag"""
     print(f"Flag: {flag}\nBinary: {bin(flag)}\n")
     for e in range(0, 13):
-        if flag & 2**e:
-            print(FLAGS[2**e])
+        if flag & 2 ** e:
+            print(FLAGS[2 ** e])
 
 
 def parse_fasta(fa_file):
@@ -194,8 +338,10 @@ def parse_fasta(fa_file):
         from gzip import open as gzopen
         from shutil import copyfileobj
         from tempfile import NamedTemporaryFile
-        with gzopen(fa_file, 'rt') as f_in, \
-                NamedTemporaryFile(mode='w+t', suffix=".fa") as f_out:
+
+        with gzopen(fa_file, "rt") as f_in, NamedTemporaryFile(
+            mode="w+t", suffix=".fa"
+        ) as f_out:
             f_out.writelines(f_in.read())
             f_out.seek(0)
             return pyfaidx.Fasta(f_out.name)

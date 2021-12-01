@@ -1,8 +1,8 @@
-site_name: Bulker
-site_logo: img/bulker_logo_gray.svg
-site_url: http://bulker.databio.org/
-repo_url: http://github.com/databio/bulker
-pypi_name: bulker
+site_name: SeqCol
+site_logo: img/seqcol_.svg
+site_url: http://seqcol.databio.org/
+repo_url: http://github.com/refgenie/seqcol
+pypi_name: seqcol
 
 nav:
   - Getting Started: 
@@ -13,7 +13,7 @@ nav:
     - "Tutorial": tutorial.md
     - Write a manifest: manifest.md
   - Reference:
-    - Support: https://github.com/databio/bulker/issues
+    - Support: https://github.com/refgenie/seqcol/issues
     - Changelog: changelog.md
 
 theme: databio
