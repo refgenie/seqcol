@@ -45,6 +45,7 @@ def compat(A, B):
 
 	return flag
 
+# New compat function that adds true/false
 def compat(A, B):
 	ainb = [x in B for x in A]
 	bina = [x in A for x in B]
@@ -105,22 +106,17 @@ def compat_all(A, B):
 	result = {}
 	for k in all_keys:
 		if k not in A or k not in B:
-			result[k] = { 	
-		"any-elements-shared": False,
-		"a-subset-of-b": False,
-		"b-subset-of-a": False,
-		"order-match": False,
-		"flag": -1
-	}
+			result[k] = { "flag": -1 }
 		else:
 			result[k] = compat(A[k], B[k])
-	result["all"] = reduce(lambda x,y: x['flag']&y['flag'], list(result.values()))
+	# result["all"] = reduce(lambda x,y: x['flag']&y['flag'], list(result.values()))
 	return result
 
 compat_all(sc1, sc2)
 compat_all(sc3, sc2)
 compat_all(sc1, sc3)
 compat_all(sc1, sc5)
+
 
 {
 	"sequences": 7

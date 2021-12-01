@@ -101,8 +101,10 @@ class SeqColClient(refget.RefGetClient):
 
 
     def compare_digests(self, digestA, digestB):
-        A = self.retrieve(digestA)
-        B = self.retrieve(digestB)
+        A = self.retrieve(digestA, reclimit=1)
+        B = self.retrieve(digestB, reclimit=1)
+        _LOGGER.info(A)
+        _LOGGER.info(B)
         return self.compat_all(A, B)
 
     @staticmethod
@@ -126,8 +128,8 @@ class SeqColClient(refget.RefGetClient):
         flag += 1 if any(ainb) else 0
         result = {  
             "any-elements-shared": any(ainb),
-            "a-subset-of-b": all(ainb),
-            "b-subset-of-a": all(bina),
+            "all-a-in-b": all(ainb),
+            "all-b-in-a": all(bina),
             "order-match": order,
             "flag": flag
         }
@@ -137,13 +139,43 @@ class SeqColClient(refget.RefGetClient):
     def compat_all(A, B):
         all_keys=(list(A.keys()) + list(set(B.keys()) - set(list(A.keys()))))
         result = {}
+        flipped_format = {
+          "any-elements-shared": [],
+          "no-elements-shared": [],  
+          "all-a-in-b": [],
+          "all-b-in-a": [],
+          "order-match": [],
+          "only-in-a": [],
+          "only-in-b": []
+        }
         for k in all_keys:
-            if k not in A or k not in B:
+            _LOGGER.info(k)
+            if k not in A:
                 result[k] = { "flag": -1 }
+                flipped_format['only-in-b'].append(k)
+            elif k not in B:
+                flipped_format['only-in-a'].append(k)
             else:
-                result[k] = SeqColClient.compat(A[k], B[k])
-        # result["all"] = reduce(lambda x,y: x['flag']&y['flag'], list(result.values()))
-        return result
+                v = SeqColClient.compat(A[k], B[k])
+                result[k] = v
+                if v['any-elements-shared']:
+                    flipped_format['any-elements-shared'].append(k)
+                else:
+                    flipped_format['no-elements-shared'].append(k)
+                if v['all-a-in-b']: flipped_format['all-a-in-b'].append(k) 
+                if v['all-b-in-a']: flipped_format['all-b-in-a'].append(k) 
+                if v['order-match']: flipped_format['order-match'].append(k)
+
+        # result = {  
+        #     "any-elements-shared": any(ainb),
+        #     "all-a-in-b": all(ainb),
+        #     "all-b-in-a": all(bina),
+        #     "order-match": order,
+        #     "flag": flag
+        # }
+
+
+        return flipped_format
 
 
     @staticmethod
