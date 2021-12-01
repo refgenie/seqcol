@@ -4,9 +4,42 @@ from seqcol.const import *
 
 DEMO_FILES = ["demo.fa.gz", "demo2.fa", "demo3.fa", "demo4.fa", "demo5.fa.gz"]
 
-CMP_SETUP = [((CONTENT_ALL_A_IN_B + CONTENT_ALL_B_IN_A + LENGTHS_ALL_A_IN_B + LENGTHS_ALL_B_IN_A + NAMES_ALL_A_IN_B + NAMES_ALL_B_IN_A + TOPO_ALL_B_IN_A + TOPO_ALL_A_IN_B + CONTENT_A_ORDER + CONTENT_B_ORDER), DEMO_FILES[1], DEMO_FILES[1]),
-             ((CONTENT_ALL_A_IN_B + LENGTHS_ALL_A_IN_B + NAMES_ALL_A_IN_B + TOPO_ALL_A_IN_B + TOPO_ALL_B_IN_A + CONTENT_A_ORDER + CONTENT_B_ORDER), DEMO_FILES[0], DEMO_FILES[1]),
-             ((LENGTHS_ALL_A_IN_B + LENGTHS_ALL_B_IN_A + TOPO_ALL_A_IN_B + TOPO_ALL_B_IN_A), DEMO_FILES[2], DEMO_FILES[4])]
+CMP_SETUP = [
+    (
+        (
+            CONTENT_ALL_A_IN_B
+            + CONTENT_ALL_B_IN_A
+            + LENGTHS_ALL_A_IN_B
+            + LENGTHS_ALL_B_IN_A
+            + NAMES_ALL_A_IN_B
+            + NAMES_ALL_B_IN_A
+            + TOPO_ALL_B_IN_A
+            + TOPO_ALL_A_IN_B
+            + CONTENT_A_ORDER
+            + CONTENT_B_ORDER
+        ),
+        DEMO_FILES[1],
+        DEMO_FILES[1],
+    ),
+    (
+        (
+            CONTENT_ALL_A_IN_B
+            + LENGTHS_ALL_A_IN_B
+            + NAMES_ALL_A_IN_B
+            + TOPO_ALL_A_IN_B
+            + TOPO_ALL_B_IN_A
+            + CONTENT_A_ORDER
+            + CONTENT_B_ORDER
+        ),
+        DEMO_FILES[0],
+        DEMO_FILES[1],
+    ),
+    (
+        (LENGTHS_ALL_A_IN_B + LENGTHS_ALL_B_IN_A + TOPO_ALL_A_IN_B + TOPO_ALL_B_IN_A),
+        DEMO_FILES[2],
+        DEMO_FILES[4],
+    ),
+]
 
 
 class TestGeneral:
@@ -36,7 +69,10 @@ class TestRetrieval:
         print("Fasta file to be loaded: {}".format(f))
         d, asds = scc.load_fasta(f)
         # convert integers in the dicts to strings
-        lst = [{k: str(v) if isinstance(v, int) else v for k, v in asd.items()} for asd in asds]
+        lst = [
+            {k: str(v) if isinstance(v, int) else v for k, v in asd.items()}
+            for asd in asds
+        ]
         assert scc.retrieve(d) == lst
 
 

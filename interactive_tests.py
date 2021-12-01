@@ -2,7 +2,6 @@ import seqcol
 from seqcol import SeqColClient
 
 
-
 scc = SeqColClient({}, schemas=["seqcol/schemas/SeqColArraySet.yaml"])
 scc
 
@@ -46,12 +45,11 @@ array_set = {"names": names, "lengths": lengths, "sequences": seq_digests}
 array_set
 collection_checksum = scc.insert(array_set, "SeqColArraySet", reclimit=1)
 
-scc.database={}
+scc.database = {}
 scc.retrieve("d229d5c16b3a1b3788f01aa439f01e682ba84bc9935ad08a", reclimit=1)
 scc.retrieve("d229d5c16b3a1b3788f01aa439f01e682ba84bc9935ad08a", reclimit=2)
 scc.database[collection_checksum]
 scc.checksum_function
-
 
 
 scc.database["d229d5c16b3a1b3788f01aa439f01e682ba84bc9935ad08a"]
@@ -61,7 +59,5 @@ scc.database["ca82b053295b6f49923d0b2cedb83de49c6be59688c3dfd9"]
 
 
 import os
+
 os.getcwd()
-
-
-
