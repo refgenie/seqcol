@@ -45,9 +45,7 @@ setup(
     author=u"Nathan Sheffield, Michal Stolarczyk",
     author_email=u"nathan@code.databio.org",
     license="BSD2",
-    entry_points={
-        "console_scripts": ["seqcol = seqcol.seqcol:main"],
-    },
+    entry_points=None,
     include_package_data=True,
     test_suite="tests",
     tests_require=(["mock", "pytest"]),
