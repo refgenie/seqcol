@@ -314,6 +314,33 @@ class SeqColClient(refget.RefGetClient):
                 )
 
 
+
+    def load_fasta_from_refgenie(self, rgc, refgenie_key):
+        """
+        @param rgc RefGenConf object
+        @param refgenie_key key of genome to load
+        @param scc SeqColClient object to load into
+        """
+        filepath = rgc.seek(refgenie_key, "fasta")
+        return self.load_fasta_from_filepath(filepath)
+
+
+    def load_fasta_from_filepath(self, filepath):
+        """
+        @param filepath Path to fasta file
+        @param sc 
+        """
+        fa_object = parse_fasta(filepath)
+        SCAS = fasta_to_scas(fa_object)
+        digest = self.insert(SCAS, "SeqColArraySet", reclimit=1)
+        return {
+          "fa_file": filepath,
+          "fa_object": fa_object,
+          "SCAS": SCAS,
+          "digest": digest
+        }
+
+
 # Static functions below (these don't require a database)
 
 
@@ -345,3 +372,26 @@ def parse_fasta(fa_file):
             f_out.writelines(f_in.read())
             f_out.seek(0)
             return pyfaidx.Fasta(f_out.name)
+
+# static 
+def fasta_to_scas(fa_object, verbose=True):
+    """
+    Given a fasta object, return a SCAS (Sequence Colletion Array Set)
+    """
+    # SCAS = SeqColArraySet
+    # Or maybe should be "Level 1 SC"
+    SCAS = {"lengths": [] , "names": [], "sequences": []}
+    seqs = fa_object.keys()
+    nseqs = len(seqs)
+    print(f"Found {nseqs} chromosomes")
+    i=1
+    for k in fa_object.keys():
+        if verbose:
+            print(f"Processing ({i} of {nseqs}) {k}...")
+        seq = str(fa_object[k])
+        digest = henge.md5(seq)
+        SCAS["lengths"].append(str(len(seq)))
+        SCAS["names"].append(fa_object[k].name)
+        SCAS["sequences"].append(henge.md5(seq))
+        i += 1
+    return SCAS
