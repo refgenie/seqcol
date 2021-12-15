@@ -129,9 +129,14 @@ class SeqColClient(refget.RefGetClient):
         """
         New compatibility function for array-based data model.
         """
+
+        uniqueA = list(dict.fromkeys(A))
+        uniqueB = list(dict.fromkeys(B))
+
         ainb = [x in B for x in A]
         bina = [x in A for x in B]
-        if any(ainb):
+        sum_ainb = sum(ainb)
+        if sum_ainb > 1:
             order = list(compress(B, bina)) == list(compress(A, ainb))
         else:
             order = False
@@ -144,9 +149,12 @@ class SeqColClient(refget.RefGetClient):
         flag += 8 if order else 0
         flag += 1 if any(ainb) else 0
         result = {
-            "elements-shared": len(ainb),
-            "all-a-in-b": all(ainb),
-            "all-b-in-a": all(bina),
+            "a-in-b": sum_ainb,
+            "b-in-a":  sum(bina),
+            "a-count": len(A),
+            "b-count": len(B),
+            "a-unique": len(uniqueA),
+            "b-unique": len(uniqueB),
             "order-match": order,
             "flag": flag,
         }
@@ -157,9 +165,12 @@ class SeqColClient(refget.RefGetClient):
         all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
         result = {}
         flipped_format = {
-            "elements-shared": {},
-            "all-a-in-b": [],
-            "all-b-in-a": [],
+            "a-in-b": {},
+            "b-in-a": {},
+            "a-count": {},
+            "b-count": {},
+            "a-unique": {},
+            "b-unique": {},
             "order-match": [],
             "only-in-a": [],
             "only-in-b": [],
@@ -174,14 +185,18 @@ class SeqColClient(refget.RefGetClient):
             else:
                 v = SeqColClient.compat(A[k], B[k])
                 result[k] = v
-                if v["elements-shared"]:
-                    flipped_format["elements-shared"][k] = v['elements-shared']
-                else:
-                    flipped_format["no-elements-shared"].append(k)
-                if v["all-a-in-b"]:
-                    flipped_format["all-a-in-b"].append(k)
-                if v["all-b-in-a"]:
-                    flipped_format["all-b-in-a"].append(k)
+                if "a-in-b" in v:
+                    flipped_format["a-in-b"][k] = v['a-in-b']
+                if "b-in-a":
+                    flipped_format["b-in-a"][k] = v['b-in-a']
+                if v["a-count"]:
+                    flipped_format["a-count"][k] = v['a-count']
+                if v["b-count"]:
+                    flipped_format["b-count"][k] = v['b-count']
+                if v["a-unique"]:
+                    flipped_format["a-unique"][k] = v['a-unique']
+                if v["b-unique"]:
+                    flipped_format["b-unique"][k] = v['b-unique']
                 if v["order-match"]:
                     flipped_format["order-match"].append(k)
 
@@ -388,9 +403,9 @@ def fasta_to_scas(fa_object, verbose=True):
         if verbose:
             print(f"Processing ({i} of {nseqs}) {k}...")
         seq = str(fa_object[k])
-        digest = henge.md5(seq)
+        digest = henge.md5(seq.upper())
         SCAS["lengths"].append(str(len(seq)))
         SCAS["names"].append(fa_object[k].name)
-        SCAS["sequences"].append(henge.md5(seq))
+        SCAS["sequences"].append(digest)
         i += 1
     return SCAS
