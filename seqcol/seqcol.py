@@ -144,7 +144,7 @@ class SeqColClient(refget.RefGetClient):
         flag += 8 if order else 0
         flag += 1 if any(ainb) else 0
         result = {
-            "any-elements-shared": any(ainb),
+            "elements-shared": len(ainb),
             "all-a-in-b": all(ainb),
             "all-b-in-a": all(bina),
             "order-match": order,
@@ -157,8 +157,7 @@ class SeqColClient(refget.RefGetClient):
         all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
         result = {}
         flipped_format = {
-            "any-elements-shared": [],
-            "no-elements-shared": [],
+            "elements-shared": {},
             "all-a-in-b": [],
             "all-b-in-a": [],
             "order-match": [],
@@ -175,8 +174,8 @@ class SeqColClient(refget.RefGetClient):
             else:
                 v = SeqColClient.compat(A[k], B[k])
                 result[k] = v
-                if v["any-elements-shared"]:
-                    flipped_format["any-elements-shared"].append(k)
+                if v["elements-shared"]:
+                    flipped_format["elements-shared"][k] = v['elements-shared']
                 else:
                     flipped_format["no-elements-shared"].append(k)
                 if v["all-a-in-b"]:
