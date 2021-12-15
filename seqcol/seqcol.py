@@ -130,9 +130,10 @@ class SeqColClient(refget.RefGetClient):
         New compatibility function for array-based data model.
         """
 
-        uniqueA = list(dict.fromkeys(A))
-        uniqueB = list(dict.fromkeys(B))
-
+        lenA = len(A)
+        lenB = len(B)
+        dupeA = lenA - len(dict.fromkeys(A))
+        dupeB = lenB - len(dict.fromkeys(B))
         ainb = [x in B for x in A]
         bina = [x in A for x in B]
         sum_ainb = sum(ainb)
@@ -141,22 +142,14 @@ class SeqColClient(refget.RefGetClient):
         else:
             order = False
 
-        any(ainb)
-
-        flag = 0
-        flag += 2 if all(ainb) else 0
-        flag += 4 if all(bina) else 0
-        flag += 8 if order else 0
-        flag += 1 if any(ainb) else 0
         result = {
             "a-in-b": sum_ainb,
             "b-in-a":  sum(bina),
-            "a-count": len(A),
-            "b-count": len(B),
-            "a-unique": len(uniqueA),
-            "b-unique": len(uniqueB),
-            "order-match": order,
-            "flag": flag,
+            "a-total": lenA,
+            "b-total": lenB,
+            "a-duplicated": dupeA,
+            "b-duplicated": dupeB,
+            "order-match": order
         }
         return result
 
@@ -167,10 +160,10 @@ class SeqColClient(refget.RefGetClient):
         flipped_format = {
             "a-in-b": {},
             "b-in-a": {},
-            "a-count": {},
-            "b-count": {},
-            "a-unique": {},
-            "b-unique": {},
+            "a-total": {},
+            "b-total": {},
+            "a-duplicated": {},
+            "b-duplicated": {},
             "order-match": [],
             "only-in-a": [],
             "only-in-b": [],
@@ -189,15 +182,15 @@ class SeqColClient(refget.RefGetClient):
                     flipped_format["a-in-b"][k] = v['a-in-b']
                 if "b-in-a":
                     flipped_format["b-in-a"][k] = v['b-in-a']
-                if v["a-count"]:
-                    flipped_format["a-count"][k] = v['a-count']
-                if v["b-count"]:
-                    flipped_format["b-count"][k] = v['b-count']
-                if v["a-unique"]:
-                    flipped_format["a-unique"][k] = v['a-unique']
-                if v["b-unique"]:
-                    flipped_format["b-unique"][k] = v['b-unique']
-                if v["order-match"]:
+                if "a-total" in v:
+                    flipped_format["a-total"][k] = v['a-total']
+                if "b-total" in v:
+                    flipped_format["b-total"][k] = v['b-total']
+                if "a-duplicated" in v:
+                    flipped_format["a-duplicated"][k] = v['a-duplicated']
+                if "b-duplicated" in v:
+                    flipped_format["b-duplicated"][k] = v['b-duplicated']
+                if "order-match" in v:
                     flipped_format["order-match"].append(k)
 
         # result = {
