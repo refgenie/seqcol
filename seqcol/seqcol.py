@@ -120,8 +120,8 @@ class SeqColClient(refget.RefGetClient):
     def compare_digests(self, digestA, digestB):
         A = self.retrieve(digestA, reclimit=1)
         B = self.retrieve(digestB, reclimit=1)
-        _LOGGER.info(A)
-        _LOGGER.info(B)
+        # _LOGGER.info(A)
+        # _LOGGER.info(B)
         return self.compat_all(A, B)
 
     @staticmethod
@@ -154,7 +154,35 @@ class SeqColClient(refget.RefGetClient):
         return result
 
     @staticmethod
+    def compatoverlap(A, B):
+        from collections import Counter
+        return sum((Counter(A) & Counter(B)).values())
+
+    @staticmethod
     def compat_all(A, B):
+        all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
+        result = {}
+        flipped_format = {
+            "overlap": {},
+            "a-total": len(A["lengths"]),
+            "b-total": len(B["lengths"]),
+            "order-match": [],
+            "only-in-a": [],
+            "only-in-b": [],
+        }
+        for k in all_keys:
+            _LOGGER.info(k)
+            if k not in A:
+                result[k] = {"flag": -1}
+                flipped_format["only-in-b"].append(k)
+            elif k not in B:
+                flipped_format["only-in-a"].append(k)
+            else:
+                flipped_format["overlap"][k] = SeqColClient.compatoverlap(A[k], B[k])
+        return flipped_format
+
+    @staticmethod
+    def compat_all_old(A, B):
         all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
         result = {}
         flipped_format = {
