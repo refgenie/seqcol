@@ -175,26 +175,43 @@ class SeqColClient(refget.RefGetClient):
     def compat_all(A, B):
         all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
         result = {}
-        flipped_format = {
-            "overlap": {},
-            "a-total": len(A["lengths"]),
-            "b-total": len(B["lengths"]),
-            "order-match": {},
-            "only-in-a": [],
-            "only-in-b": [],
+        # flipped_format = {
+        #     "overlap": {},
+        #     "a-total": len(A["lengths"]),
+        #     "b-total": len(B["lengths"]),
+        #     "order-match": {},
+        #     "only-in-a": [],
+        #     "only-in-b": [],
+        # }
+        new_format = {
+            "arrays": {
+                "a-only": [],
+                "b-only": [],
+                "a-and-b": []
+            },
+            "elements": {
+                "total": {
+                    "a": len(A["lengths"]),
+                    "b": len(B["lengths"])
+                },
+                "overlap": {},
+                "order-match": {},
+            }
         }
+
         for k in all_keys:
             _LOGGER.info(k)
             if k not in A:
                 result[k] = {"flag": -1}
-                flipped_format["only-in-b"].append(k)
+                new_format["arrays"]["b-only"].append(k)
             elif k not in B:
-                flipped_format["only-in-a"].append(k)
+                new_format["arrays"]["a-only"].append(k)
             else:
+                new_format["arrays"]["a-and-b"].append(k)
                 res = SeqColClient.compatoverlap(A[k], B[k])
-                flipped_format["overlap"][k] = res["overlap"]
-                flipped_format["order-match"][k] = res["order-match"]
-        return flipped_format
+                new_format["elements"]["overlap"][k] = res["overlap"]
+                new_format["elements"]["order-match"][k] = res["order-match"]
+        return new_format
 
     @staticmethod
     def compat_all_old(A, B):
