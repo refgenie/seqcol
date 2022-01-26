@@ -155,8 +155,21 @@ class SeqColClient(refget.RefGetClient):
 
     @staticmethod
     def compatoverlap(A, B):
-        from collections import Counter
-        return sum((Counter(A) & Counter(B)).values())
+        A_filtered = list(filter(lambda x: x in B, A))
+        B_filtered = list(filter(lambda x: x in A, B))
+        A_count = len(A_filtered)
+        B_count = len(B_filtered)
+        overlap = min(len(A_filtered), len(B_filtered)) ## counts duplicates
+
+        if A_count + B_count < 1:
+            # order match requires at least 2 matching elements
+            order = None
+        elif not (A_count == B_count == overlap):
+            # duplicated matches means order match is undefined
+            order = None
+        else:
+            order = (A_filtered == B_filtered)
+        return { "overlap": overlap, "order-match": order }
 
     @staticmethod
     def compat_all(A, B):
@@ -166,7 +179,7 @@ class SeqColClient(refget.RefGetClient):
             "overlap": {},
             "a-total": len(A["lengths"]),
             "b-total": len(B["lengths"]),
-            "order-match": [],
+            "order-match": {},
             "only-in-a": [],
             "only-in-b": [],
         }
@@ -178,7 +191,9 @@ class SeqColClient(refget.RefGetClient):
             elif k not in B:
                 flipped_format["only-in-a"].append(k)
             else:
-                flipped_format["overlap"][k] = SeqColClient.compatoverlap(A[k], B[k])
+                res = SeqColClient.compatoverlap(A[k], B[k])
+                flipped_format["overlap"][k] = res["overlap"]
+                flipped_format["order-match"][k] = res["order-match"]
         return flipped_format
 
     @staticmethod
