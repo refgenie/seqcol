@@ -154,7 +154,7 @@ class SeqColClient(refget.RefGetClient):
         return result
 
     @staticmethod
-    def compatoverlap(A, B):
+    def array_overlap(A, B):
         A_filtered = list(filter(lambda x: x in B, A))
         B_filtered = list(filter(lambda x: x in A, B))
         A_count = len(A_filtered)
@@ -172,18 +172,16 @@ class SeqColClient(refget.RefGetClient):
         return { "overlap": overlap, "order-match": order }
 
     @staticmethod
-    def compat_all(A, B):
+    def compare(A, B):
+        """
+        Comparison function
+        @param A Sequence collection A
+        @param B Sequence collection B
+        @return dict Following formal seqcol specification comparison function return value
+        """
         all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
         result = {}
-        # flipped_format = {
-        #     "overlap": {},
-        #     "a-total": len(A["lengths"]),
-        #     "b-total": len(B["lengths"]),
-        #     "order-match": {},
-        #     "only-in-a": [],
-        #     "only-in-b": [],
-        # }
-        new_format = {
+        return_obj = {
             "arrays": {
                 "a-only": [],
                 "b-only": [],
@@ -203,15 +201,15 @@ class SeqColClient(refget.RefGetClient):
             _LOGGER.info(k)
             if k not in A:
                 result[k] = {"flag": -1}
-                new_format["arrays"]["b-only"].append(k)
+                return_obj["arrays"]["b-only"].append(k)
             elif k not in B:
-                new_format["arrays"]["a-only"].append(k)
+                return_obj["arrays"]["a-only"].append(k)
             else:
-                new_format["arrays"]["a-and-b"].append(k)
-                res = SeqColClient.compatoverlap(A[k], B[k])
-                new_format["elements"]["overlap"][k] = res["overlap"]
-                new_format["elements"]["order-match"][k] = res["order-match"]
-        return new_format
+                return_obj["arrays"]["a-and-b"].append(k)
+                res = SeqColClient.array_overlap(A[k], B[k])
+                return_obj["elements"]["overlap"][k] = res["overlap"]
+                return_obj["elements"]["order-match"][k] = res["order-match"]
+        return return_obj
 
     @staticmethod
     def compat_all_old(A, B):
@@ -345,7 +343,7 @@ class SeqColClient(refget.RefGetClient):
             explain_flag(return_flag)
         return return_flag
 
-    def compare(self, digestA, digestB, explain=False):
+    def compare_digests_old(self, digestA, digestB, explain=False):
         """
         Given two collection checksums in the database, provide some information
         about how they are related.
