@@ -2,7 +2,7 @@ import seqcol
 from seqcol import SeqColClient
 
 
-scc = SeqColClient({}, schemas=["seqcol/schemas/SeqColArraySet.yaml"])
+scc = SeqColClient(database={}, schemas=["seqcol/schemas/SeqColArraySet.yaml"])
 scc
 
 fa_file = "demo_fasta/demo.fa.gz"
@@ -25,8 +25,69 @@ collection_checksum = scc.insert(array_set, "SeqColArraySet")
 collection_checksum
 
 scc.retrieve("d229d5c16b3a1b3788f01aa439f01e682ba84bc9935ad08a")
-
 scc.retrieve("d229d5c16b3a1b3788f01aa439f01e682ba84bc9935ad08a", reclimit=1)
+
+scc.retrieve("5c4b07f08319d3d0815f5ee25c45916a01f9d1519f0112e8")
+
+scc.retrieve(collection_checksum, reclimit=1)
+scc.retrieve(collection_checksum, reclimit=2)
+scc.retrieve(collection_checksum)
+scc.supports_inherent_attrs
+
+
+
+# Now a test of inherent attributes
+scci = SeqColClient(database={}, schemas=["seqcol/schemas/SeqColArraySetInherent.yaml"])
+scci
+
+
+fa_file = "demo_fasta/demo.fa.gz"
+fa_object = seqcol.parse_fasta(fa_file)
+
+array_set_i = {"names": names, "lengths": lengths, "sequences": sequences, "author":"urkel"}
+
+array_set_i2 = {"names": names, "lengths": lengths, "sequences": sequences, "author" :"nathan"}
+
+
+di = scci.insert(array_set_i, "SeqColArraySet")
+di = scci.insert(array_set_i2, "SeqColArraySet")
+di
+scc.retrieve(di)
+scci.retrieve(di)
+
+
+build_names_lengths(array_set_i)
+
+#reorder
+
+array_set_reordered = {}
+for k,v in array_set.items():
+	print(k,v)
+	array_set_reordered[k] = list(reversed(v))
+
+array_set
+array_set_reordered
+
+build_names_lengths(array_set)
+build_names_lengths(array_set_reordered)
+
+
+import henge
+def build_names_lengths(obj:dict):
+
+	names_lengths = []
+	for i in range(len(array_set["names"])):
+		names_lengths.append(
+			{"length": array_set["lengths"][i], 
+						"name": array_set["names"][i]})
+	nl_digests = []
+	for i in range(len(names_lengths)):
+		nl_digests.append(scci.checksum_function(henge.canonical_str(names_lengths[i])))
+
+	nl_digests.sort()
+	return nl_digests
+
+
 
 
 from henge import md5
