@@ -397,6 +397,8 @@ class SeqColClient(refget.RefGetClient):
         """
         fa_object = parse_fasta(filepath)
         SCAS = fasta_to_scas(fa_object)
+        SCAS["names_lengths"] = build_names_lengths(SCAS, self.checksum_function)
+        _LOGGER.debug(f"names_lengths: {SCAS['names_lengths']}")
         digest = self.insert(SCAS, "SeqColArraySet", reclimit=1)
         return {
           "fa_file": filepath,
@@ -449,6 +451,7 @@ def fasta_to_scas(fa_object, verbose=True):
     seqs = fa_object.keys()
     nseqs = len(seqs)
     print(f"Found {nseqs} chromosomes")
+    print("Building names_lengths attribute")
     i=1
     for k in fa_object.keys():
         if verbose:
@@ -459,4 +462,19 @@ def fasta_to_scas(fa_object, verbose=True):
         SCAS["names"].append(fa_object[k].name)
         SCAS["sequences"].append(digest)
         i += 1
+
     return SCAS
+
+def build_names_lengths(obj: dict, digest_function):
+    """ Builds the names_lengths attribute, which corresponds to the coordinate system """
+    names_lengths = []
+    for i in range(len(obj["names"])):
+        names_lengths.append(
+            {"length": obj["lengths"][i], 
+                        "name": obj["names"][i]})
+    nl_digests = []
+    for i in range(len(names_lengths)):
+        nl_digests.append(digest_function(henge.canonical_str(names_lengths[i])))
+
+    nl_digests.sort()
+    return nl_digests

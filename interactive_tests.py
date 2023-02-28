@@ -73,19 +73,6 @@ build_names_lengths(array_set_reordered)
 
 
 import henge
-def build_names_lengths(obj:dict):
-
-	names_lengths = []
-	for i in range(len(array_set["names"])):
-		names_lengths.append(
-			{"length": array_set["lengths"][i], 
-						"name": array_set["names"][i]})
-	nl_digests = []
-	for i in range(len(names_lengths)):
-		nl_digests.append(scci.checksum_function(henge.canonical_str(names_lengths[i])))
-
-	nl_digests.sort()
-	return nl_digests
 
 
 
