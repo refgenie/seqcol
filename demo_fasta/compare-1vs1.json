@@ -1,0 +1,30 @@
+{
+  "arrays":{
+    "a-and-b":[
+      "lengths",
+      "names",
+      "sequences",
+      "names_lengths"
+    ],
+    "a-only":[],
+    "b-only":[]
+  },
+  "elements":{
+    "a-and-b":{
+      "lengths":2,
+      "names":2,
+      "names_lengths":2,
+      "sequences":2
+    },
+    "a-and-b-same-order":{
+      "lengths":true,
+      "names":true,
+      "names_lengths":true,
+      "sequences":true
+    },
+    "total":{
+      "a":2,
+      "b":2
+    }
+  }
+}

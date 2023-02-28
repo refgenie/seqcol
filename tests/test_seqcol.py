@@ -1,46 +1,24 @@
+import json
 import pytest
 from seqcol import SeqColClient
 from seqcol.const import *
 
-DEMO_FILES = ["demo.fa.gz", "demo2.fa", "demo3.fa", "demo4.fa", "demo5.fa.gz"]
-
-CMP_SETUP = [
-    (
-        (
-            CONTENT_ALL_A_IN_B
-            + CONTENT_ALL_B_IN_A
-            + LENGTHS_ALL_A_IN_B
-            + LENGTHS_ALL_B_IN_A
-            + NAMES_ALL_A_IN_B
-            + NAMES_ALL_B_IN_A
-            + TOPO_ALL_B_IN_A
-            + TOPO_ALL_A_IN_B
-            + CONTENT_A_ORDER
-            + CONTENT_B_ORDER
-        ),
-        DEMO_FILES[1],
-        DEMO_FILES[1],
-    ),
-    (
-        (
-            CONTENT_ALL_A_IN_B
-            + LENGTHS_ALL_A_IN_B
-            + NAMES_ALL_A_IN_B
-            + TOPO_ALL_A_IN_B
-            + TOPO_ALL_B_IN_A
-            + CONTENT_A_ORDER
-            + CONTENT_B_ORDER
-        ),
-        DEMO_FILES[0],
-        DEMO_FILES[1],
-    ),
-    (
-        (LENGTHS_ALL_A_IN_B + LENGTHS_ALL_B_IN_A + TOPO_ALL_A_IN_B + TOPO_ALL_B_IN_A),
-        DEMO_FILES[2],
-        DEMO_FILES[4],
-    ),
+DEMO_FILES = [
+    "demo0.fa",
+    "demo1.fa.gz",
+    "demo2.fa",
+    "demo3.fa",
+    "demo4.fa",
+    "demo5.fa.gz",
+    "demo6.fa",
 ]
 
+# Pairs of files to compare, with the "correct" compare response
+COMPARE_TESTS = [
+    (DEMO_FILES[1], DEMO_FILES[1], "demo_fasta/compare-1vs1.json"),
+    (DEMO_FILES[0], DEMO_FILES[1], "demo_fasta/compare-0vs1.json"),
+    (DEMO_FILES[5], DEMO_FILES[6], "demo_fasta/compare-5vs6.json"),
+]
 
 class TestGeneral:
     def test_no_schemas_required(self):
@@ -48,13 +26,13 @@ class TestGeneral:
         In contrast to the generic Henge object, SeqColClient does not
         require schemas as input, they are predefined in the constructor
         """
-        assert isinstance(SeqColClient({}), SeqColClient)
+        assert isinstance(SeqColClient(database={}), SeqColClient)
 
 
 class TestFastaInserting:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_fasta_loading_works(self, fasta_name, fasta_path):
-        scc = SeqColClient({})
+        scc = SeqColClient(database={})
         f = os.path.join(fasta_path, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         res = scc.load_fasta(f)
@@ -64,7 +42,7 @@ class TestFastaInserting:
 class TestRetrieval:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_retrieval_works(self, fasta_name, fasta_path):
-        scc = SeqColClient({})
+        scc = SeqColClient(database={})
         f = os.path.join(fasta_path, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         d, asds = scc.load_fasta(f)
@@ -77,9 +55,20 @@ class TestRetrieval:
 
 
 class TestCompare:
-    @pytest.mark.parametrize(["code", "fasta1", "fasta2"], CMP_SETUP)
-    def test_fasta_compare(self, code, fasta1, fasta2, fasta_path):
-        scc = SeqColClient({})
-        d, _ = scc.load_fasta(os.path.join(fasta_path, fasta1))
-        d2, _ = scc.load_fasta(os.path.join(fasta_path, fasta2))
-        assert scc.compare(d, d2) == code
+    """
+    Test the compare function, using demo fasta files, and pre-computed
+    compare function results stored as answer files.
+    """
+    @pytest.mark.parametrize(["fasta1", "fasta2", "answer_file"], COMPARE_TESTS)
+    def test_fasta_compare(self, fasta1, fasta2, answer_file, fasta_path):
+        print(f"Fasta1: {fasta1}")
+        print(f"Fasta2: {fasta2}")
+        print(f"answer_file: {answer_file}")
+        scc = SeqColClient(database={})
+        d = scc.load_fasta_from_filepath(os.path.join(fasta_path, fasta1))
+        d2 = scc.load_fasta_from_filepath(os.path.join(fasta_path, fasta2))
+        with open(answer_file) as fp:
+            correct_compare_response = json.load(fp)
+            proposed_compare_response = scc.compare(d["SCAS"], d2["SCAS"])
+            print(json.dumps(proposed_compare_response, separators=(",", ":"), ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2))
+            assert proposed_compare_response == correct_compare_response
