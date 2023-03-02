@@ -4,21 +4,21 @@ henge_class: "SeqColArraySet"
 properties:
   topologies:
     type: array
-    henge_class: "array"
+    henge_class: "strarray"
     items:
       type: string
       enum: ["circular", "linear"]
       default: "linear"  
   names:
     type: array
-    henge_class: "array"
+    henge_class: "strarray"
     items:
       type: string    
   lengths:
     type: array
-    henge_class: "array"
+    henge_class: "intarray"
     items:
-      type: string    
+      type: integer
   sequences:
     type: array
     henge_class: "seqarray"
@@ -27,7 +27,7 @@ properties:
       henge_class: sequence
   names_lengths:
     type: array
-    henge_class: "array"
+    henge_class: "strarray"
     items:
       type: string
 inherent:
