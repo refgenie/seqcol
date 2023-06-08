@@ -47,8 +47,9 @@ class TestRetrieval:
         print("Fasta file to be loaded: {}".format(f))
         d, asds = scc.load_fasta(f)
         # convert integers in the dicts to strings
+        # {k: str(v) if isinstance(v, int) else v for k, v in asd.items()}
         lst = [
-            {k: str(v) if isinstance(v, int) else v for k, v in asd.items()}
+            {k:v for k, v in asd.items()}
             for asd in asds
         ]
         assert scc.retrieve(d) == lst

@@ -219,9 +219,7 @@ class SeqColClient(refget.RefGetClient):
         @param sc 
         """
         fa_object = parse_fasta(filepath)
-        SCAS = fasta_to_scas(fa_object)
-        SCAS["names_lengths"] = build_names_lengths(SCAS, self.checksum_function)
-        _LOGGER.debug(f"names_lengths: {SCAS['names_lengths']}")
+        SCAS = fasta_to_scas(fa_object, digest_function=self.checksum_function)
         digest = self.insert(SCAS, "SeqColArraySet", reclimit=1)
         return {
           "fa_file": filepath,
@@ -264,28 +262,31 @@ def parse_fasta(fa_file):
             return pyfaidx.Fasta(f_out.name)
 
 # static 
-def fasta_to_scas(fa_object, verbose=True):
+def fasta_to_scas(fa_object, verbose=True, digest_function=henge.md5):
     """
-    Given a fasta object, return a SCAS (Sequence Colletion Array Set)
+    Given a fasta object, return a SCAS (Sequence Collection Array Set)
     """
     # SCAS = SeqColArraySet
     # Or maybe should be "Level 1 SC"
-    SCAS = {"lengths": [] , "names": [], "sequences": []}
+    SCAS = {"lengths": [] , "names": [], "sequences": [], "names_lengths": []}
     seqs = fa_object.keys()
     nseqs = len(seqs)
     print(f"Found {nseqs} chromosomes")
-    print("Building names_lengths attribute")
     i=1
     for k in fa_object.keys():
         if verbose:
             print(f"Processing ({i} of {nseqs}) {k}...")
         seq = str(fa_object[k])
-        digest = henge.md5(seq.upper())
-        SCAS["lengths"].append(str(len(seq)))
-        SCAS["names"].append(fa_object[k].name)
-        SCAS["sequences"].append(digest)
+        seq_length = len(seq)
+        seq_name = fa_object[k].name
+        seq_digest = digest_function(seq.upper())
+        nl = {"length": seq_length, "name": seq_name}
+        nl_digest = digest_function(henge.canonical_str(nl))
+        SCAS["lengths"].append(seq_length)
+        SCAS["names"].append(seq_name)
+        SCAS["names_lengths"].append(nl_digest)
+        SCAS["sequences"].append(seq_digest)
         i += 1
-
     return SCAS
 
 def build_names_lengths(obj: dict, digest_function):
@@ -301,3 +302,4 @@ def build_names_lengths(obj: dict, digest_function):
 
     nl_digests.sort()
     return nl_digests
+
