@@ -17,7 +17,7 @@ def schema_path():
 
 
 @pytest.fixture
-def fasta_path():
+def fa_root():
     return os.path.join(
         os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir),
         "demo_fasta",

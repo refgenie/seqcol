@@ -17,6 +17,9 @@ DEMO_FILES = [
 COMPARE_TESTS = [
     (DEMO_FILES[1], DEMO_FILES[1], "demo_fasta/compare-1vs1.json"),
     (DEMO_FILES[0], DEMO_FILES[1], "demo_fasta/compare-0vs1.json"),
+]
+
+NAMES_LENGTHS_TESTS = [
     (DEMO_FILES[5], DEMO_FILES[6], "demo_fasta/compare-5vs6.json"),
 ]
 
@@ -31,9 +34,9 @@ class TestGeneral:
 
 class TestFastaInserting:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
-    def test_fasta_loading_works(self, fasta_name, fasta_path):
+    def test_fasta_loading_works(self, fasta_name, fa_root):
         scc = SeqColClient(database={})
-        f = os.path.join(fasta_path, fasta_name)
+        f = os.path.join(fa_root, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         res = scc.load_fasta(f)
         assert len(res) == 2  # returns digest and list of AnnotatedSequencesList
@@ -41,9 +44,9 @@ class TestFastaInserting:
 
 class TestRetrieval:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
-    def test_retrieval_works(self, fasta_name, fasta_path):
+    def test_retrieval_works(self, fasta_name, fa_root):
         scc = SeqColClient(database={})
-        f = os.path.join(fasta_path, fasta_name)
+        f = os.path.join(fa_root, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         d, asds = scc.load_fasta(f)
         # convert integers in the dicts to strings
@@ -55,21 +58,29 @@ class TestRetrieval:
         assert scc.retrieve(d) == lst
 
 
+def check_comparison(fasta1, fasta2, expected_comparison):
+    print(f"Comparison: Fasta1: {fasta1} vs Fasta2: {fasta2}. Expected: {expected_comparison}")
+    scc = SeqColClient(database={})
+    d = scc.load_fasta_from_filepath(fasta1)
+    d2 = scc.load_fasta_from_filepath(fasta2)
+    with open(expected_comparison) as fp:
+        correct_compare_response = json.load(fp)
+        proposed_compare_response = scc.compare(d["SCAS"], d2["SCAS"])
+        print(json.dumps(proposed_compare_response, separators=(",", ":"), ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2))
+        assert proposed_compare_response == correct_compare_response
+
 class TestCompare:
     """
     Test the compare function, using demo fasta files, and pre-computed
     compare function results stored as answer files.
     """
     @pytest.mark.parametrize(["fasta1", "fasta2", "answer_file"], COMPARE_TESTS)
-    def test_fasta_compare(self, fasta1, fasta2, answer_file, fasta_path):
-        print(f"Fasta1: {fasta1}")
-        print(f"Fasta2: {fasta2}")
-        print(f"answer_file: {answer_file}")
-        scc = SeqColClient(database={})
-        d = scc.load_fasta_from_filepath(os.path.join(fasta_path, fasta1))
-        d2 = scc.load_fasta_from_filepath(os.path.join(fasta_path, fasta2))
-        with open(answer_file) as fp:
-            correct_compare_response = json.load(fp)
-            proposed_compare_response = scc.compare(d["SCAS"], d2["SCAS"])
-            print(json.dumps(proposed_compare_response, separators=(",", ":"), ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2))
-            assert proposed_compare_response == correct_compare_response
+    def test_fasta_compare(self, fasta1, fasta2, answer_file, fa_root):
+        check_comparison(os.path.join(fa_root, fasta1), os.path.join(fa_root, fasta2), answer_file)
+
+
+    @pytest.mark.parametrize(["fasta1", "fasta2", "answer_file"], NAMES_LENGTHS_TESTS)
+    def test_names_lengths_order(self, fasta1, fasta2, answer_file, fa_root):
+        """ Does the names_lengths array correctly identify order variants """
+        check_comparison(os.path.join(fa_root, fasta1), os.path.join(fa_root, fasta2), answer_file)
+
