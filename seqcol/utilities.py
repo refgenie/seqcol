@@ -33,6 +33,7 @@ def seqcol_digest(seqcol_obj: dict, schema: dict = None) -> str:
     :param dict schema: Schema defining the inherent attributes to digest
     :return str: The sequence collection digest
     """
+
     seqcol_obj2 = {}
     for attribute in seqcol_obj:
         seqcol_obj2[attribute] = canonical_str(seqcol_obj[attribute])

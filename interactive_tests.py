@@ -158,4 +158,5 @@ import json
 print(json.dumps(csc, indent=2))
 
 
-seqcol_digest(csc)
+seqcol.seqcol_digest(csc)
+
