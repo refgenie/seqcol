@@ -18,10 +18,10 @@ COMPARE_TESTS = [
     (DEMO_FILES[1], DEMO_FILES[1], "demo_fasta/compare-1vs1.json"),
     (DEMO_FILES[0], DEMO_FILES[1], "demo_fasta/compare-0vs1.json"),
 ]
-
-NAMES_LENGTHS_TESTS = [
+SNLP_TESTS = [
     (DEMO_FILES[5], DEMO_FILES[6], "demo_fasta/compare-5vs6.json"),
-]
+]  # sorted_name_length_pairs
+
 
 class TestGeneral:
     def test_no_schemas_required(self):
@@ -51,10 +51,7 @@ class TestRetrieval:
         d, asds = scc.load_fasta(f)
         # convert integers in the dicts to strings
         # {k: str(v) if isinstance(v, int) else v for k, v in asd.items()}
-        lst = [
-            {k:v for k, v in asd.items()}
-            for asd in asds
-        ]
+        lst = [{k: v for k, v in asd.items()} for asd in asds]
         assert scc.retrieve(d) == lst
 
 
@@ -66,21 +63,30 @@ def check_comparison(fasta1, fasta2, expected_comparison):
     with open(expected_comparison) as fp:
         correct_compare_response = json.load(fp)
         proposed_compare_response = scc.compare(d["SCAS"], d2["SCAS"])
-        print(json.dumps(proposed_compare_response, separators=(",", ":"), ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2))
+        print(
+            json.dumps(
+                proposed_compare_response,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+                sort_keys=True,
+                indent=2,
+            )
+        )
         assert proposed_compare_response == correct_compare_response
+
 
 class TestCompare:
     """
     Test the compare function, using demo fasta files, and pre-computed
     compare function results stored as answer files.
     """
+
     @pytest.mark.parametrize(["fasta1", "fasta2", "answer_file"], COMPARE_TESTS)
     def test_fasta_compare(self, fasta1, fasta2, answer_file, fa_root):
         check_comparison(os.path.join(fa_root, fasta1), os.path.join(fa_root, fasta2), answer_file)
 
-
-    @pytest.mark.parametrize(["fasta1", "fasta2", "answer_file"], NAMES_LENGTHS_TESTS)
+    @pytest.mark.parametrize(["fasta1", "fasta2", "answer_file"], SNLP_TESTS)
     def test_names_lengths_order(self, fasta1, fasta2, answer_file, fa_root):
-        """ Does the names_lengths array correctly identify order variants """
+        """Does the names_lengths array correctly identify order variants"""
         check_comparison(os.path.join(fa_root, fasta1), os.path.join(fa_root, fasta2), answer_file)
-

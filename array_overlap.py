@@ -14,6 +14,7 @@
 
 # from itertools import filter
 
+
 def array_overlap(A, B):
     A_filtered = list(filter(lambda x: x in B, A))
     B_filtered = list(filter(lambda x: x in A, B))
@@ -27,8 +28,8 @@ def array_overlap(A, B):
         # duplicated matches means order match is undefined
         order = None
     else:
-        order = (A_filtered == B_filtered)
-    return { "overlap": overlap, "order-match": order }
+        order = A_filtered == B_filtered
+    return {"overlap": overlap, "order-match": order}
 
 
 example1 = ["A", "B", "C", "D"]
@@ -39,8 +40,6 @@ example5 = ["X", "A", "B", "Y", "C", "D", "E"]
 example6 = ["A", "B", "C", "D", "B"]
 example7 = ["A", "B", "C", "D", "A"]
 example8 = ["A", "B", "C", "D", "B", "A"]
-
-
 
 
 compatoverlap(example1, example2)
@@ -54,4 +53,3 @@ compatoverlap(example3, example6)
 compatoverlap(example6, example7)
 compatoverlap(example7, example8)
 compatoverlap(example8, example8)
-

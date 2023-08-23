@@ -1,6 +1,5 @@
 import henge
 import logging
-import logmuse
 import os
 import pyfaidx
 import refget
@@ -9,7 +8,7 @@ from copy import copy
 from functools import reduce
 from itertools import compress
 
-from .hash_functions import trunc512_digest
+from .utilities import trunc512_digest
 from .const import *
 
 
@@ -66,8 +65,7 @@ class SeqColClient(refget.RefGetClient):
         # TODO: any systematic way infer topology from a FASTA file?
         if topology_default not in KNOWN_TOPOS:
             raise ValueError(
-                f"Invalid topology ({topology_default}). "
-                f"Choose from: {','.join(KNOWN_TOPOS)}"
+                f"Invalid topology ({topology_default}). " f"Choose from: {','.join(KNOWN_TOPOS)}"
             )
         fa_object = parse_fasta(fa_file)
         aslist = []
@@ -177,9 +175,7 @@ class SeqColClient(refget.RefGetClient):
                 return_obj["arrays"]["a-and-b"].append(k)
                 res = SeqColClient.compare_elements(A[k], B[k])
                 return_obj["elements"]["a-and-b"][k] = res["a-and-b"]
-                return_obj["elements"]["a-and-b-same-order"][k] = res[
-                    "a-and-b-same-order"
-                ]
+                return_obj["elements"]["a-and-b-same-order"][k] = res["a-and-b-same-order"]
         return return_obj
 
     def retrieve(self, druid, reclimit=None, raw=False):
@@ -211,7 +207,7 @@ class SeqColClient(refget.RefGetClient):
         @param sc
         """
         fa_object = parse_fasta(filepath)
-        SCAS = fasta_to_scas(fa_object, digest_function=self.checksum_function)
+        SCAS = fasta_obj_to_seqcol(fa_object, digest_function=self.checksum_function)
         digest = self.insert(SCAS, "SeqColArraySet", reclimit=1)
         return {
             "fa_file": filepath,
@@ -244,7 +240,7 @@ def explain_flag(flag):
             print(FLAGS[2**e])
 
 
-def parse_fasta(fa_file):
+def parse_fasta(fa_file) -> pyfaidx.Fasta:
     """
     Read in a gzipped or not gzipped FASTA file
     """
@@ -258,22 +254,33 @@ def parse_fasta(fa_file):
         from shutil import copyfileobj
         from tempfile import NamedTemporaryFile
 
-        with gzopen(fa_file, "rt") as f_in, NamedTemporaryFile(
-            mode="w+t", suffix=".fa"
-        ) as f_out:
+        with gzopen(fa_file, "rt") as f_in, NamedTemporaryFile(mode="w+t", suffix=".fa") as f_out:
             f_out.writelines(f_in.read())
             f_out.seek(0)
             return pyfaidx.Fasta(f_out.name)
 
 
-def fasta_to_scas(fa_object, verbose=True, digest_function=henge.md5):
+from typing import Callable
+
+
+def fasta_to_seqcol(fa_file_path: str) -> dict:
+    """Given a fasta, return a canonical seqcol object"""
+    fa_obj = parse_fasta(fa_file_path)
+    return fasta_obj_to_seqcol(fa_obj)
+
+
+def fasta_obj_to_seqcol(
+    fa_object: pyfaidx.Fasta,
+    verbose: bool = True,
+    digest_function: Callable[[str], str] = henge.md5,
+) -> dict:
     """
-    Given a fasta object, return a SCAS (Sequence Collection Array Set)
+    Given a fasta object, return a CSC (Canonical Sequence Collection object)
     """
-    # SCAS = SeqColArraySet
+    # CSC = SeqColArraySet
     # Or maybe should be "Level 1 SC"
 
-    SCAS = {"lengths": [], "names": [], "sequences": [], "names_lengths": []}
+    CSC = {"lengths": [], "names": [], "sequences": [], "sorted_name_length_pairs": []}
     seqs = fa_object.keys()
     nseqs = len(seqs)
     print(f"Found {nseqs} chromosomes")
@@ -285,26 +292,25 @@ def fasta_to_scas(fa_object, verbose=True, digest_function=henge.md5):
         seq_length = len(seq)
         seq_name = fa_object[k].name
         seq_digest = digest_function(seq.upper())
-        nl = {"length": seq_length, "name": seq_name}
-        nl_digest = digest_function(henge.canonical_str(nl))
-        SCAS["lengths"].append(seq_length)
-        SCAS["names"].append(seq_name)
-        SCAS["names_lengths"].append(nl_digest)
-        SCAS["sequences"].append(seq_digest)
+        snlp = {"length": seq_length, "name": seq_name}  # sorted_name_length_pairs
+        snlp_digest = digest_function(henge.canonical_str(snlp))
+        CSC["lengths"].append(seq_length)
+        CSC["names"].append(seq_name)
+        CSC["sorted_name_length_pairs"].append(snlp_digest)
+        CSC["sequences"].append(seq_digest)
         i += 1
-    SCAS["names_lengths"].sort()
-    return SCAS
+    CSC["sorted_name_length_pairs"].sort()
+    return CSC
 
 
-def build_names_lengths(obj: dict, digest_function):
-    """Builds the names_lengths attribute, which corresponds to the coordinate system"""
-    names_lengths = []
+def build_sorted_name_length_pairs(obj: dict, digest_function):
+    """Builds the sorted_name_length_pairs attribute, which corresponds to the coordinate system"""
+    sorted_name_length_pairs = []
     for i in range(len(obj["names"])):
-        names_lengths.append({"length": obj["lengths"][i], "name": obj["names"][i]})
+        sorted_name_length_pairs.append({"length": obj["lengths"][i], "name": obj["names"][i]})
     nl_digests = []
-    for i in range(len(names_lengths)):
-        nl_digests.append(digest_function(henge.canonical_str(names_lengths[i])))
+    for i in range(len(sorted_name_length_pairs)):
+        nl_digests.append(digest_function(henge.canonical_str(sorted_name_length_pairs[i])))
 
     nl_digests.sort()
     return nl_digests
-

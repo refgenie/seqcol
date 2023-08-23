@@ -42,15 +42,13 @@ setup(
     ],
     keywords="genome, assembly, bioinformatics, reference, sequence",
     url="https://github.com/refgenie/seqcol",
-    author=u"Nathan Sheffield, Michal Stolarczyk",
-    author_email=u"nathan@code.databio.org",
+    author="Nathan Sheffield, Michal Stolarczyk",
+    author_email="nathan@code.databio.org",
     license="BSD2",
     entry_points=None,
     include_package_data=True,
     test_suite="tests",
     tests_require=(["mock", "pytest"]),
-    setup_requires=(
-        ["pytest-runner"] if {"test", "pytest", "ptr"} & set(sys.argv) else []
-    ),
-    **extra
+    setup_requires=(["pytest-runner"] if {"test", "pytest", "ptr"} & set(sys.argv) else []),
+    **extra,
 )

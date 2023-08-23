@@ -72,7 +72,7 @@ scci.retrieve(d['digest'])
 scci.retrieve(d5['digest'])
 
 fa_object = seqcol.parse_fasta(os.path.join(fasta_path, fasta1))
-SCAS = seqcol.fasta_to_scas(fa_object)
+SCAS = seqcol.fasta_to_csc(fa_object)
 digest = scci.insert(SCAS, "SeqColArraySet", reclimit=1)
 
 
@@ -87,7 +87,7 @@ json.dumps(scci.compare(d5["SCAS"], d6["SCAS"]))
 print(json.dumps(scci.compare(d5["SCAS"], d6["SCAS"]), separators=(",", ":"), ensure_ascii=False
     ...: , allow_nan=False, sort_keys=True, indent=2))
 
-build_names_lengths(array_set_i)
+build_sorted_name_length_pairs(array_set_i)
 
 #reorder
 
@@ -99,8 +99,8 @@ for k,v in array_set.items():
 array_set
 array_set_reordered
 
-build_names_lengths(array_set)
-build_names_lengths(array_set_reordered)
+build_sorted_name_length_pairs(array_set)
+build_sorted_name_length_pairs(array_set_reordered)
 
 
 import henge
@@ -140,3 +140,22 @@ scc.database["ca82b053295b6f49923d0b2cedb83de49c6be59688c3dfd9"]
 import os
 
 os.getcwd()
+
+
+
+
+
+## standalone functions
+
+import seqcol
+fa_file = "demo_fasta/demo0.fa"
+fa_object = seqcol.parse_fasta(fa_file)
+
+# get a canonical seqcol object
+csc = seqcol.fasta_to_csc(fa_object)
+csc
+import json
+print(json.dumps(csc, indent=2))
+
+
+seqcol_digest(csc)
