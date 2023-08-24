@@ -41,7 +41,7 @@ def validate_seqcol_bool(seqcol_obj: SeqCol, schema=None) -> bool:
     return validator.is_valid(seqcol_obj)
 
 
-# Get errors if invalid  (use this one)
+# Get errors if invalid (use this one)
 # Get the errors with exception.errors
 def validate_seqcol(seqcol_obj: SeqCol, schema=None) -> Optional[dict]:
     schema_path = os.path.join(os.path.dirname(__file__), "schemas", "seqcol.yaml")

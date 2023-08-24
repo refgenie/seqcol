@@ -1,7 +1,3 @@
-# Project configuration, particularly for logging.
-
-import logging
-
 from .const import *
 from .seqcol import *
 from .seqcol_client import *
