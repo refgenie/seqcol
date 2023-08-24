@@ -1,6 +1,14 @@
 import binascii
 import hashlib
 import json
+import os
+
+from jsonschema import Draft7Validator
+from typing import Optional
+from yacman import load_yaml
+
+from .const import SeqCol
+from .exceptions import *
 
 
 # Refget digests from published seqcol v1.0 protocol
@@ -25,49 +33,21 @@ def print_csc(csc: dict) -> str:
     return print(json.dumps(csc, indent=2))
 
 
-def seqcol_digest(seqcol_obj: dict, schema: dict = None) -> str:
-    """
-    Given a canonical sequence collection, compute its digest.
+# Simple true/false validation
+def validate_seqcol_bool(seqcol_obj: SeqCol, schema=None) -> bool:
+    schema_path = os.path.join(os.path.dirname(__file__), "schemas", "seqcol.yaml")
+    schema = load_yaml(schema_path)
+    validator = Draft7Validator(schema)
+    return validator.is_valid(seqcol_obj)
 
-    :param dict seqcol_obj: Dictionary representation of a canonical sequence collection object
-    :param dict schema: Schema defining the inherent attributes to digest
-    :return str: The sequence collection digest
-    """
 
-    seqcol_obj2 = {}
-    for attribute in seqcol_obj:
-        seqcol_obj2[attribute] = canonical_str(seqcol_obj[attribute])
-
-    # Step 1a: Remove any non-inherent attributes,
-    # so that only the inherent attributes contribute to the digest.
-    if schema:
-        seqcol_obj2_filtered = {}
-        for k in schema["inherent"]:
-            seqcol_obj2_filtered[k] = seqcol_obj2[k]
-    else:
-        seqcol_obj2_filtered = seqcol_obj2
-
-    # Step 2: Apply RFC-8785 to canonicalize the value
-    # associated with each attribute individually.
-    seqcol_obj2 = {}
-    for attribute in seqcol_obj:
-        seqcol_obj2[attribute] = canonical_str(seqcol_obj[attribute])
-    # seqcol_obj2  # visualize the result
-
-    # Step 3: Digest each canonicalized attribute value
-    # using the GA4GH digest algorithm.
-
-    seqcol_obj3 = {}
-    for attribute in seqcol_obj2:
-        seqcol_obj3[attribute] = trunc512_digest(seqcol_obj2[attribute])
-    # print(json.dumps(seqcol_obj3, indent=2))  # visualize the result
-
-    # Step 4: Apply RFC-8785 again to canonicalize the JSON
-    # of new seqcol object representation.
-
-    seqcol_obj4 = canonical_str(seqcol_obj3)
-    # seqcol_obj4  # visualize the result
-
-    # Step 5: Digest the final canonical representation again.
-    seqcol_digest = trunc512_digest(seqcol_obj4)
-    return seqcol_digest
+# Get errors if invalid  (use this one)
+# Get the errors with exception.errors
+def validate_seqcol(seqcol_obj: SeqCol, schema=None) -> Optional[dict]:
+    schema_path = os.path.join(os.path.dirname(__file__), "schemas", "seqcol.yaml")
+    schema = load_yaml(schema_path)
+    validator = Draft7Validator(schema)
+    if not validator.is_valid(seqcol_obj):
+        errors = sorted(validator.iter_errors(seqcol_obj), key=lambda e: e.path)
+        raise InvalidSeqColError("Validation failed", errors)
+    return True

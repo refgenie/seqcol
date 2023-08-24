@@ -1,7 +1,10 @@
 import json
+import os
 import pytest
-from seqcol import SeqColClient
-from seqcol.const import *
+import seqcol
+
+# from seqcol import SeqColClient, validate_seqcol, compare
+# from seqcol.const import *
 
 DEMO_FILES = [
     "demo0.fa",
@@ -29,13 +32,13 @@ class TestGeneral:
         In contrast to the generic Henge object, SeqColClient does not
         require schemas as input, they are predefined in the constructor
         """
-        assert isinstance(SeqColClient(database={}), SeqColClient)
+        assert isinstance(seqcol.SeqColClient(database={}), seqcol.SeqColClient)
 
 
 class TestFastaInserting:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_fasta_loading_works(self, fasta_name, fa_root):
-        scc = SeqColClient(database={})
+        scc = seqcol.SeqColClient(database={})
         f = os.path.join(fa_root, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         res = scc.load_fasta(f)
@@ -45,7 +48,7 @@ class TestFastaInserting:
 class TestRetrieval:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_retrieval_works(self, fasta_name, fa_root):
-        scc = SeqColClient(database={})
+        scc = seqcol.SeqColClient(database={})
         f = os.path.join(fa_root, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         d, asds = scc.load_fasta(f)
@@ -57,12 +60,12 @@ class TestRetrieval:
 
 def check_comparison(fasta1, fasta2, expected_comparison):
     print(f"Comparison: Fasta1: {fasta1} vs Fasta2: {fasta2}. Expected: {expected_comparison}")
-    scc = SeqColClient(database={})
+    scc = seqcol.SeqColClient(database={})
     d = scc.load_fasta_from_filepath(fasta1)
     d2 = scc.load_fasta_from_filepath(fasta2)
     with open(expected_comparison) as fp:
         correct_compare_response = json.load(fp)
-        proposed_compare_response = scc.compare(d["SCAS"], d2["SCAS"])
+        proposed_compare_response = seqcol.compare_seqcols(d["SCAS"], d2["SCAS"])
         print(
             json.dumps(
                 proposed_compare_response,
@@ -90,3 +93,32 @@ class TestCompare:
     def test_names_lengths_order(self, fasta1, fasta2, answer_file, fa_root):
         """Does the names_lengths array correctly identify order variants"""
         check_comparison(os.path.join(fa_root, fasta1), os.path.join(fa_root, fasta2), answer_file)
+
+
+seqcol_obj = {
+    "lengths": [248956422, 133797422, 135086622],
+    "names": ["chr1", "chr2", "chr3"],
+    "sequences": [
+        "2648ae1bacce4ec4b6cf337dcae37816",
+        "907112d17fcb73bcab1ed1c72b97ce68",
+        "1511375dc2dd1b633af8cf439ae90cec",
+    ],
+}
+
+bad_seqcol = {"bogus": True}
+
+
+class TestValidate:
+    """
+    Test validation
+    """
+
+    @pytest.mark.parametrize(["seqcol_obj"], [[seqcol_obj]])
+    def test_validate(self, seqcol_obj):
+        is_valid = seqcol.validate_seqcol(seqcol_obj)
+        assert is_valid
+
+    @pytest.mark.parametrize(["seqcol_obj"], [[bad_seqcol]])
+    def test_failure(self, seqcol_obj):
+        with pytest.raises(Exception):
+            seqcol.validate_seqcol(seqcol_obj)
