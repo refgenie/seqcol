@@ -19,6 +19,11 @@ def explain_flag(flag):
         if flag & 2**e:
             print(FLAGS[2**e])
 
+def fasta_to_digest(fa_file_path: str) -> str:
+    """Given a fasta, return a digest"""
+    seqcol_obj = fasta_to_seqcol(fa_file_path)
+    return seqcol_digest(seqcol_obj)
+
 
 def parse_fasta(fa_file) -> pyfaidx.Fasta:
     """
