@@ -48,7 +48,7 @@ def fasta_to_seqcol(fa_file_path: str) -> dict:
 def fasta_obj_to_seqcol(
     fa_object: pyfaidx.Fasta,
     verbose: bool = True,
-    digest_function: Callable[[str], str] = trunc512_digest,
+    digest_function: Callable[[str], str] = sha512t24u_digest,
 ) -> dict:
     """
     Given a fasta object, return a CSC (Canonical Sequence Collection object)
@@ -177,7 +177,7 @@ def seqcol_digest(seqcol_obj: SeqCol, schema: dict = None) -> str:
 
     seqcol_obj3 = {}
     for attribute in seqcol_obj2:
-        seqcol_obj3[attribute] = trunc512_digest(seqcol_obj2[attribute])
+        seqcol_obj3[attribute] = sha512t24u_digest(seqcol_obj2[attribute])
     # print(json.dumps(seqcol_obj3, indent=2))  # visualize the result
 
     # Step 4: Apply RFC-8785 again to canonicalize the JSON
@@ -186,5 +186,5 @@ def seqcol_digest(seqcol_obj: SeqCol, schema: dict = None) -> str:
     seqcol_obj4 = canonical_str(seqcol_obj3)
 
     # Step 5: Digest the final canonical representation again.
-    seqcol_digest = trunc512_digest(seqcol_obj4)
+    seqcol_digest = sha512t24u_digest(seqcol_obj4)
     return seqcol_digest

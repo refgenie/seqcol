@@ -15,10 +15,15 @@ from .exceptions import *
 # Retrieved July 2019
 # http://samtools.github.io/hts-specs/refget.html
 def trunc512_digest(seq, offset=24) -> str:
-    """GA4GH digest algorithm"""
     digest = hashlib.sha512(seq.encode()).digest()
     hex_digest = binascii.hexlify(digest[:offset])
     return hex_digest.decode()
+
+def sha512t24u_digest(seq: str, offset: int = 24) -> str:
+    """ GA4GH digest function """
+    digest = hashlib.sha512(seq.encode()).digest()
+    tdigest_b64us = base64.urlsafe_b64encode(digest[:offset])
+    return tdigest_b64us.decode("ascii")
 
 
 def canonical_str(item: dict) -> str:

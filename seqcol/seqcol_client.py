@@ -8,7 +8,7 @@ from itertools import compress
 
 from .const import *
 from .seqcol import *
-from .utilities import trunc512_digest
+from .utilities import sha512t24u_digest
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class SeqColClient(refget.RefGetClient):
         database={},
         schemas=None,
         henges=None,
-        checksum_function=trunc512_digest,
+        checksum_function=sha512t24u_digest,
     ):
         """
         A user interface to insert and retrieve decomposable recursive unique
