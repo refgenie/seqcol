@@ -1,5 +1,4 @@
 from .const import *
-from .seqcol import *
 from .seqcol_client import *
 from .utilities import *
 from ._version import __version__

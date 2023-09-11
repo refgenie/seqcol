@@ -7,8 +7,7 @@ from functools import reduce
 from itertools import compress
 
 from .const import *
-from .seqcol import *
-from .utilities import sha512t24u_digest
+from .utilities import *
 
 
 _LOGGER = logging.getLogger(__name__)
