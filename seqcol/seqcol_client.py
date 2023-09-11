@@ -119,7 +119,7 @@ class SeqColClient(refget.RefGetClient):
         B = self.retrieve(digestB, reclimit=1)
         # _LOGGER.info(A)
         # _LOGGER.info(B)
-        return compare(A, B)
+        return compare_seqcols(A, B)
 
     def retrieve(self, druid, reclimit=None, raw=False):
         try:

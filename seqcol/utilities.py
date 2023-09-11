@@ -56,3 +56,17 @@ def validate_seqcol(seqcol_obj: SeqCol, schema=None) -> Optional[dict]:
         errors = sorted(validator.iter_errors(seqcol_obj), key=lambda e: e.path)
         raise InvalidSeqColError("Validation failed", errors)
     return True
+
+def format_itemwise(csc: SeqCol) -> list:
+    """ 
+    Format a SeqCol object into a list of dicts, one per sequence.
+    """
+    list_of_dicts = []
+    for i in range(len(csc["lengths"])):
+        list_of_dicts.append(
+            {
+                "name": csc["names"][i],
+                "length": csc["lengths"][i],
+                "sequence": csc["sequences"][i],
+            })
+    return list_of_dicts
