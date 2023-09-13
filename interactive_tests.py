@@ -1,8 +1,8 @@
 import seqcol
-from seqcol import SeqColClient
+from seqcol import SeqColHenge
 
 
-scc = SeqColClient(database={}, schemas=["seqcol/schemas/SeqColArraySet.yaml"])
+scc = SeqColHenge(database={}, schemas=["seqcol/schemas/SeqColArraySet.yaml"])
 scc
 
 fa_file = "demo_fasta/demo0.fa"
@@ -38,7 +38,7 @@ scc.supports_inherent_attrs
 
 # Now a test of inherent attributes
 import seqcol
-scci = seqcol.SeqColClient(database={}, schemas=["seqcol/schemas/SeqColArraySetInherent.yaml"])
+scci = seqcol.SeqColHenge(database={}, schemas=["seqcol/schemas/SeqColArraySetInherent.yaml"])
 scci
 scci.schemas
 

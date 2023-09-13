@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 henge.ITEM_TYPE = "_item_type"
 
 
-class SeqColClient(refget.RefGetClient):
+class SeqColHenge(refget.RefGetClient):
     """
     Extension of henge that accommodates collections of sequences.
     """
@@ -39,14 +39,14 @@ class SeqColClient(refget.RefGetClient):
             handle the digest of the
             serialized items stored in this henge.
         """
-        super(SeqColClient, self).__init__(
+        super(SeqColHenge, self).__init__(
             api_url_base=api_url_base,
             database=database,
             schemas=schemas or INTERNAL_SCHEMAS,
             henges=henges,
             checksum_function=checksum_function,
         )
-        _LOGGER.info("Initializing SeqColClient")
+        _LOGGER.info("Initializing SeqColHenge")
 
     def load_fasta(self, fa_file, skip_seq=False, topology_default="linear"):
         """
@@ -122,7 +122,7 @@ class SeqColClient(refget.RefGetClient):
 
     def retrieve(self, druid, reclimit=None, raw=False):
         try:
-            return super(SeqColClient, self).retrieve(druid, reclimit, raw)
+            return super(SeqColHenge, self).retrieve(druid, reclimit, raw)
         except henge.NotFoundException as e:
             _LOGGER.debug(e)
             try:
@@ -138,7 +138,7 @@ class SeqColClient(refget.RefGetClient):
         """
         @param rgc RefGenConf object
         @param refgenie_key key of genome to load
-        @param scc SeqColClient object to load into
+        @param scc SeqColHenge object to load into
         """
         filepath = rgc.seek(refgenie_key, "fasta")
         return self.load_fasta_from_filepath(filepath)
@@ -165,7 +165,8 @@ class SeqColClient(refget.RefGetClient):
         @param fasta_list
         """
         results = {}
-        for name, path in fasta_dict.items():
+        for name in fasta_dict.keys():
+            path = fasta_dict[name]["fasta"]
             print(f"Processing fasta '{name}'' at path '{path}'...")
             results[name] = self.load_fasta_from_filepath(path)
         return results

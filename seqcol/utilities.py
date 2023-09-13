@@ -67,6 +67,8 @@ def format_itemwise(csc: SeqCol) -> list:
     Format a SeqCol object into a list of dicts, one per sequence.
     """
     list_of_dicts = []
+    # TODO: handle all properties, not just these 3
+    # TODO: handle non-collated attributes, somehow
     for i in range(len(csc["lengths"])):
         list_of_dicts.append(
             {
@@ -74,7 +76,7 @@ def format_itemwise(csc: SeqCol) -> list:
                 "length": csc["lengths"][i],
                 "sequence": csc["sequences"][i],
             })
-    return list_of_dicts
+    return {"sequences": list_of_dicts}
 
 
 def explain_flag(flag):
