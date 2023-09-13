@@ -1,5 +1,6 @@
 import os
 
+
 def _schema_path(name):
     return os.path.join(SCHEMA_FILEPATH, name)
 

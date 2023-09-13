@@ -15,6 +15,7 @@ from .exceptions import *
 
 _LOGGER = logging.getLogger(__name__)
 
+
 # Refget digests from published seqcol v1.0 protocol
 # Retrieved July 2019
 # http://samtools.github.io/hts-specs/refget.html
@@ -25,7 +26,7 @@ def trunc512_digest(seq, offset=24) -> str:
 
 
 def sha512t24u_digest(seq: str, offset: int = 24) -> str:
-    """ GA4GH digest function """
+    """GA4GH digest function"""
     digest = hashlib.sha512(seq.encode()).digest()
     tdigest_b64us = base64.urlsafe_b64encode(digest[:offset])
     return tdigest_b64us.decode("ascii")
@@ -62,8 +63,9 @@ def validate_seqcol(seqcol_obj: SeqCol, schema=None) -> Optional[dict]:
         raise InvalidSeqColError("Validation failed", errors)
     return True
 
+
 def format_itemwise(csc: SeqCol) -> list:
-    """ 
+    """
     Format a SeqCol object into a list of dicts, one per sequence.
     """
     list_of_dicts = []
@@ -75,7 +77,8 @@ def format_itemwise(csc: SeqCol) -> list:
                 "name": csc["names"][i],
                 "length": csc["lengths"][i],
                 "sequence": csc["sequences"][i],
-            })
+            }
+        )
     return {"sequences": list_of_dicts}
 
 
@@ -85,6 +88,7 @@ def explain_flag(flag):
     for e in range(0, 13):
         if flag & 2**e:
             print(FLAGS[2**e])
+
 
 def fasta_to_digest(fa_file_path: str) -> str:
     """Given a fasta, return a digest"""
