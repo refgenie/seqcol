@@ -182,11 +182,11 @@ def compare_seqcols(A: SeqCol, B: SeqCol):
     all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
     result = {}
     return_obj = {
-        "arrays": {"a-only": [], "b-only": [], "a-and-b": []},
+        "arrays": {"a_only": [], "b_only": [], "a_and_b": []},
         "elements": {
             "total": {"a": len(A["lengths"]), "b": len(B["lengths"])},
-            "a-and-b": {},
-            "a-and-b-same-order": {},
+            "a_and_b": {},
+            "a_and_b_same_order": {},
         },
     }
 
@@ -194,14 +194,14 @@ def compare_seqcols(A: SeqCol, B: SeqCol):
         _LOGGER.info(k)
         if k not in A:
             result[k] = {"flag": -1}
-            return_obj["arrays"]["b-only"].append(k)
+            return_obj["arrays"]["b_only"].append(k)
         elif k not in B:
-            return_obj["arrays"]["a-only"].append(k)
+            return_obj["arrays"]["a_only"].append(k)
         else:
-            return_obj["arrays"]["a-and-b"].append(k)
+            return_obj["arrays"]["a_and_b"].append(k)
             res = _compare_elements(A[k], B[k])
-            return_obj["elements"]["a-and-b"][k] = res["a-and-b"]
-            return_obj["elements"]["a-and-b-same-order"][k] = res["a-and-b-same-order"]
+            return_obj["elements"]["a_and_b"][k] = res["a_and_b"]
+            return_obj["elements"]["a_and_b_same_order"][k] = res["a_and_b_same_order"]
     return return_obj
 
 
