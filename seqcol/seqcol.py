@@ -2,8 +2,6 @@ import henge
 import logging
 import refget
 
-from copy import copy
-from functools import reduce
 from itertools import compress
 
 from .const import *
