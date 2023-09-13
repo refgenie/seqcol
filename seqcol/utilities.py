@@ -20,6 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 # Retrieved July 2019
 # http://samtools.github.io/hts-specs/refget.html
 def trunc512_digest(seq, offset=24) -> str:
+    """Deprecated GA4GH digest function"""
     digest = hashlib.sha512(seq.encode()).digest()
     hex_digest = binascii.hexlify(digest[:offset])
     return hex_digest.decode()
@@ -44,17 +45,23 @@ def print_csc(csc: dict) -> str:
     return print(json.dumps(csc, indent=2))
 
 
-# Simple true/false validation
 def validate_seqcol_bool(seqcol_obj: SeqCol, schema=None) -> bool:
+    """
+    Validate a seqcol object against the seqcol schema. Returns True if valid, False if not.
+
+    To enumerate the errors, use validate_seqcol instead.
+    """
     schema_path = os.path.join(os.path.dirname(__file__), "schemas", "seqcol.yaml")
     schema = load_yaml(schema_path)
     validator = Draft7Validator(schema)
     return validator.is_valid(seqcol_obj)
 
 
-# Get errors if invalid (use this one)
-# Get the errors with exception.errors
 def validate_seqcol(seqcol_obj: SeqCol, schema=None) -> Optional[dict]:
+    """Validate a seqcol object against the seqcol schema.
+    Returns True if valid, raises InvalidSeqColError if not, which enumerates the errors.
+    Retrieve individual errors with exception.errors
+    """
     schema_path = os.path.join(os.path.dirname(__file__), "schemas", "seqcol.yaml")
     schema = load_yaml(schema_path)
     validator = Draft7Validator(schema)
@@ -82,17 +89,9 @@ def format_itemwise(csc: SeqCol) -> list:
     return {"sequences": list_of_dicts}
 
 
-def explain_flag(flag):
-    """Explains a compare flag"""
-    print(f"Flag: {flag}\nBinary: {bin(flag)}\n")
-    for e in range(0, 13):
-        if flag & 2**e:
-            print(FLAGS[2**e])
-
-
-def fasta_to_digest(fa_file_path: str) -> str:
+def fasta_file_to_digest(fa_file_path: str) -> str:
     """Given a fasta, return a digest"""
-    seqcol_obj = fasta_to_seqcol(fa_file_path)
+    seqcol_obj = fasta_file_to_seqcol(fa_file_path)
     return seqcol_digest(seqcol_obj)
 
 
@@ -115,7 +114,7 @@ def parse_fasta(fa_file) -> pyfaidx.Fasta:
             return pyfaidx.Fasta(f_out.name)
 
 
-def fasta_to_seqcol(fa_file_path: str) -> dict:
+def fasta_file_to_seqcol(fa_file_path: str) -> dict:
     """Given a fasta, return a canonical seqcol object"""
     fa_obj = parse_fasta(fa_file_path)
     return fasta_obj_to_seqcol(fa_obj)
@@ -130,7 +129,7 @@ def fasta_obj_to_seqcol(
     Given a fasta object, return a CSC (Canonical Sequence Collection object)
     """
     # CSC = SeqColArraySet
-    # Or maybe should be "Level 1 SC"
+    # Or equivalently, a "Level 1 SeqCol"
 
     CSC = {"lengths": [], "names": [], "sequences": [], "sorted_name_length_pairs": []}
     seqs = fa_object.keys()
@@ -160,7 +159,7 @@ def build_sorted_name_length_pairs(obj: dict, digest_function):
     sorted_name_length_pairs = []
     for i in range(len(obj["names"])):
         sorted_name_length_pairs.append({"length": obj["lengths"][i], "name": obj["names"][i]})
-    nl_digests = []
+    nl_digests = []  # name-length digests
     for i in range(len(sorted_name_length_pairs)):
         nl_digests.append(digest_function(canonical_str(sorted_name_length_pairs[i])))
 
@@ -264,3 +263,11 @@ def seqcol_digest(seqcol_obj: SeqCol, schema: dict = None) -> str:
     # Step 5: Digest the final canonical representation again.
     seqcol_digest = sha512t24u_digest(seqcol_obj4)
     return seqcol_digest
+
+
+def explain_flag(flag):
+    """Explains a compare flag"""
+    print(f"Flag: {flag}\nBinary: {bin(flag)}\n")
+    for e in range(0, 13):
+        if flag & 2**e:
+            print(FLAGS[2**e])

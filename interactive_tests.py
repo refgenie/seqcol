@@ -38,6 +38,7 @@ scc.supports_inherent_attrs
 
 # Now a test of inherent attributes
 import seqcol
+
 scci = seqcol.SeqColHenge(database={}, schemas=["seqcol/schemas/SeqColArraySetInherent.yaml"])
 scci
 scci.schemas
@@ -46,8 +47,8 @@ scci.schemas
 fa_file = "demo_fasta/demo0.fa"
 fa_object = seqcol.parse_fasta(fa_file)
 
-array_set_i = {"names": names, "lengths": lengthsi, "sequences": sequences, "author":"urkel"}
-array_set_i2 = {"names": names, "lengths": lengthsi, "sequences": sequences, "author" :"nathan"}
+array_set_i = {"names": names, "lengths": lengthsi, "sequences": sequences, "author": "urkel"}
+array_set_i2 = {"names": names, "lengths": lengthsi, "sequences": sequences, "author": "nathan"}
 
 
 di = scci.insert(array_set_i, "SeqColArraySet")
@@ -55,21 +56,22 @@ di = scci.insert(array_set_i2, "SeqColArraySet")
 di
 # scc.retrieve(di)
 scci.retrieve(di)
-fasta_path="demo_fasta"
+fasta_path = "demo_fasta"
 fasta1 = "demo2.fa"
 fasta2 = "demo3.fa"
 fasta5 = "demo5.fa.gz"
 fasta6 = "demo6.fa"
 
 import os
+
 d = scci.load_fasta_from_filepath(os.path.join(fasta_path, fasta1))
 d2 = scci.load_fasta_from_filepath(os.path.join(fasta_path, fasta2))
 d2 = scci.load_fasta_from_filepath(os.path.join(fasta_path, fasta2))
 d5 = scci.load_fasta_from_filepath(os.path.join(fasta_path, fasta5))
 d6 = scci.load_fasta_from_filepath(os.path.join(fasta_path, fasta6))
-scci.retrieve(d['digest'])
+scci.retrieve(d["digest"])
 
-scci.retrieve(d5['digest'])
+scci.retrieve(d5["digest"])
 
 fa_object = seqcol.parse_fasta(os.path.join(fasta_path, fasta1))
 SCAS = seqcol.fasta_to_csc(fa_object)
@@ -84,17 +86,25 @@ scci.compare(d["SCAS"], d2["SCAS"])
 
 
 json.dumps(scci.compare(d5["SCAS"], d6["SCAS"]))
-print(json.dumps(scci.compare(d5["SCAS"], d6["SCAS"]), separators=(",", ":"), ensure_ascii=False
-    ...: , allow_nan=False, sort_keys=True, indent=2))
+print(
+    json.dumps(
+        scci.compare(d5["SCAS"], d6["SCAS"]),
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        indent=2,
+    )
+)
 
 build_sorted_name_length_pairs(array_set_i)
 
-#reorder
+# reorder
 
 array_set_reordered = {}
-for k,v in array_set.items():
-	print(k,v)
-	array_set_reordered[k] = list(reversed(v))
+for k, v in array_set.items():
+    print(k, v)
+    array_set_reordered[k] = list(reversed(v))
 
 array_set
 array_set_reordered
@@ -104,8 +114,6 @@ build_sorted_name_length_pairs(array_set_reordered)
 
 
 import henge
-
-
 
 
 from henge import md5
@@ -142,12 +150,10 @@ import os
 os.getcwd()
 
 
-
-
-
 ## standalone functions
 
 import seqcol
+
 fa_file = "demo_fasta/demo0.fa"
 fa_object = seqcol.parse_fasta(fa_file)
 
@@ -155,8 +161,8 @@ fa_object = seqcol.parse_fasta(fa_file)
 csc = seqcol.fasta_to_csc(fa_object)
 csc
 import json
+
 print(json.dumps(csc, indent=2))
 
 
 seqcol.seqcol_digest(csc)
-
