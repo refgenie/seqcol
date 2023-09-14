@@ -1,22 +1,22 @@
 {
   "arrays":{
-    "a-and-b":[
+    "a_and_b":[
       "lengths",
       "names",
       "sequences",
       "sorted_name_length_pairs"
     ],
-    "a-only":[],
-    "b-only":[]
+    "a_only":[],
+    "b_only":[]
   },
   "elements":{
-    "a-and-b":{
+    "a_and_b":{
       "lengths":3,
       "names":3,
       "sorted_name_length_pairs":3,
       "sequences":3
     },
-    "a-and-b-same-order":{
+    "a_and_b_same_order":{
       "lengths":false,
       "names":false,
       "sorted_name_length_pairs":true,

@@ -220,7 +220,7 @@ def _compare_elements(A: list, B: list):
         order = None
     else:
         order = A_filtered == B_filtered
-    return {"a-and-b": overlap, "a-and-b-same-order": order}
+    return {"a_and_b": overlap, "a_and_b_same_order": order}
 
 
 def seqcol_digest(seqcol_obj: SeqCol, schema: dict = None) -> str:
