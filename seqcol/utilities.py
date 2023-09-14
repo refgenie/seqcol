@@ -16,9 +16,6 @@ from .exceptions import *
 _LOGGER = logging.getLogger(__name__)
 
 
-# Refget digests from published seqcol v1.0 protocol
-# Retrieved July 2019
-# http://samtools.github.io/hts-specs/refget.html
 def trunc512_digest(seq, offset=24) -> str:
     """Deprecated GA4GH digest function"""
     digest = hashlib.sha512(seq.encode()).digest()
@@ -89,12 +86,6 @@ def format_itemwise(csc: SeqCol) -> list:
     return {"sequences": list_of_dicts}
 
 
-def fasta_file_to_digest(fa_file_path: str) -> str:
-    """Given a fasta, return a digest"""
-    seqcol_obj = fasta_file_to_seqcol(fa_file_path)
-    return seqcol_digest(seqcol_obj)
-
-
 def parse_fasta(fa_file) -> pyfaidx.Fasta:
     """
     Read in a gzipped or not gzipped FASTA file
@@ -112,6 +103,12 @@ def parse_fasta(fa_file) -> pyfaidx.Fasta:
             f_out.writelines(f_in.read())
             f_out.seek(0)
             return pyfaidx.Fasta(f_out.name)
+
+
+def fasta_file_to_digest(fa_file_path: str) -> str:
+    """Given a fasta, return a digest"""
+    seqcol_obj = fasta_file_to_seqcol(fa_file_path)
+    return seqcol_digest(seqcol_obj)
 
 
 def fasta_file_to_seqcol(fa_file_path: str) -> dict:
