@@ -139,7 +139,7 @@ def fasta_obj_to_seqcol(
         seq = str(fa_object[k])
         seq_length = len(seq)
         seq_name = fa_object[k].name
-        seq_digest = digest_function(seq.upper())
+        seq_digest = "SQ."+digest_function(seq.upper())
         snlp = {"length": seq_length, "name": seq_name}  # sorted_name_length_pairs
         snlp_digest = digest_function(canonical_str(snlp))
         CSC["lengths"].append(seq_length)

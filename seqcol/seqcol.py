@@ -1,6 +1,6 @@
 import henge
 import logging
-import refget
+import yacman
 
 from itertools import compress
 
@@ -12,14 +12,34 @@ _LOGGER = logging.getLogger(__name__)
 henge.ITEM_TYPE = "_item_type"
 
 
-class SeqColHenge(refget.RefGetClient):
+class SeqColConf(yacman.YAMLConfigManager):
+    """
+    Simple configuration manager object for SeqColHenge.
+    """
+    def __init__(
+        self,
+        entries={},
+        filepath=None,
+        yamldata=None,
+        writable=False,
+        wait_max=60,
+        skip_read_lock=False,
+    ):
+        filepath = yacman.select_config(
+            config_filepath=filepath,
+            config_env_vars=["SEQCOLAPI_CONFIG"],
+            config_name="seqcol"
+        )
+        super(SeqColConf, self).__init__(entries, filepath, yamldata, writable)
+
+
+class SeqColHenge(henge.Henge):
     """
     Extension of henge that accommodates collections of sequences.
     """
 
     def __init__(
         self,
-        api_url_base=None,
         database={},
         schemas=None,
         henges=None,
@@ -38,7 +58,6 @@ class SeqColHenge(refget.RefGetClient):
             serialized items stored in this henge.
         """
         super(SeqColHenge, self).__init__(
-            api_url_base=api_url_base,
             database=database,
             schemas=schemas or INTERNAL_SCHEMAS,
             henges=henges,
@@ -123,6 +142,7 @@ class SeqColHenge(refget.RefGetClient):
             return super(SeqColHenge, self).retrieve(druid, reclimit, raw)
         except henge.NotFoundException as e:
             _LOGGER.debug(e)
+            raise e
             try:
                 return self.refget(druid)
             except Exception as e:
