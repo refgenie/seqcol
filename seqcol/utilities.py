@@ -105,6 +105,34 @@ def parse_fasta(fa_file) -> pyfaidx.Fasta:
             return pyfaidx.Fasta(f_out.name)
 
 
+def chrom_sizes_to_digest(chrom_sizes_file_path: str) -> str:
+    """Given a chrom.sizes file, return a digest"""
+    seqcol_obj = chrom_sizes_to_seqcol(chrom_sizes_file_path)
+    return seqcol_digest(seqcol_obj)
+
+
+def chrom_sizes_to_seqcol(
+        chrom_sizes_file_path: str,
+        digest_function: Callable[[str], str] = sha512t24u_digest,
+        ) -> dict:
+    """Given a chrom.sizes file, return a canonical seqcol object"""
+    with open(chrom_sizes_file_path, "r") as f:
+        lines = f.readlines()
+    CSC = {"lengths": [], "names": [], "sequences": [], "sorted_name_length_pairs": []}
+    for line in lines:
+        line = line.strip()
+        if line == "":
+            continue
+        seq_name, seq_length, ga4gh_digest, md5_digest = line.split("\t")
+        snlp = {"length": seq_length, "name": seq_name}  # sorted_name_length_pairs
+        snlp_digest = digest_function(canonical_str(snlp))
+        CSC["lengths"].append(int(seq_length))
+        CSC["names"].append(seq_name)
+        CSC["sequences"].append(ga4gh_digest)
+        CSC["sorted_name_length_pairs"].append(snlp_digest)
+    return CSC
+
+
 def fasta_file_to_digest(fa_file_path: str) -> str:
     """Given a fasta, return a digest"""
     seqcol_obj = fasta_file_to_seqcol(fa_file_path)

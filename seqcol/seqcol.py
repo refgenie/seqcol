@@ -156,7 +156,6 @@ class SeqColHenge(henge.Henge):
         """
         @param rgc RefGenConf object
         @param refgenie_key key of genome to load
-        @param scc SeqColHenge object to load into
         """
         filepath = rgc.seek(refgenie_key, "fasta")
         return self.load_fasta_from_filepath(filepath)
@@ -164,7 +163,6 @@ class SeqColHenge(henge.Henge):
     def load_fasta_from_filepath(self, filepath):
         """
         @param filepath Path to fasta file
-        @param sc
         """
         fa_object = parse_fasta(filepath)
         SCAS = fasta_obj_to_seqcol(fa_object, digest_function=self.checksum_function)
@@ -172,6 +170,20 @@ class SeqColHenge(henge.Henge):
         return {
             "fa_file": filepath,
             "fa_object": fa_object,
+            "SCAS": SCAS,
+            "digest": digest,
+        }
+
+    def load_from_chromsizes(self, chromsizes):
+        """
+        @param chromsizes Path to chromsizes file
+        """
+        SCAS = chrom_sizes_to_seqcol(
+            chromsizes, digest_function=self.checksum_function
+        )
+        digest = self.insert(SCAS, "SeqColArraySet", reclimit=1)
+        return {
+            "chromsizes_file": chromsizes,
             "SCAS": SCAS,
             "digest": digest,
         }
