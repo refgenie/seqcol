@@ -1,195 +1,202 @@
 import henge
 import logging
-import pyfaidx
+import yacman
 
-from typing import Callable
+from itertools import compress
 
-from .utilities import *
 from .const import *
+from .utilities import *
 
 
 _LOGGER = logging.getLogger(__name__)
 henge.ITEM_TYPE = "_item_type"
 
 
-def explain_flag(flag):
-    """Explains a compare flag"""
-    print(f"Flag: {flag}\nBinary: {bin(flag)}\n")
-    for e in range(0, 13):
-        if flag & 2**e:
-            print(FLAGS[2**e])
-
-def fasta_to_digest(fa_file_path: str) -> str:
-    """Given a fasta, return a digest"""
-    seqcol_obj = fasta_to_seqcol(fa_file_path)
-    return seqcol_digest(seqcol_obj)
-
-
-def parse_fasta(fa_file) -> pyfaidx.Fasta:
+class SeqColConf(yacman.YAMLConfigManager):
     """
-    Read in a gzipped or not gzipped FASTA file
+    Simple configuration manager object for SeqColHenge.
     """
-    try:
-        return pyfaidx.Fasta(fa_file)
-    except pyfaidx.UnsupportedCompressionFormat:
-        # pyfaidx can handle bgzip but not gzip; so we just hack it here and
-        # gunzip the file into a temporary one and read it in not to interfere
-        # with the original one.
-        from gzip import open as gzopen
-        from tempfile import NamedTemporaryFile
-
-        with gzopen(fa_file, "rt") as f_in, NamedTemporaryFile(mode="w+t", suffix=".fa") as f_out:
-            f_out.writelines(f_in.read())
-            f_out.seek(0)
-            return pyfaidx.Fasta(f_out.name)
-
-
-def fasta_to_seqcol(fa_file_path: str) -> dict:
-    """Given a fasta, return a canonical seqcol object"""
-    fa_obj = parse_fasta(fa_file_path)
-    return fasta_obj_to_seqcol(fa_obj)
+    def __init__(
+        self,
+        entries={},
+        filepath=None,
+        yamldata=None,
+        writable=False,
+        wait_max=60,
+        skip_read_lock=False,
+    ):
+        filepath = yacman.select_config(
+            config_filepath=filepath,
+            config_env_vars=["SEQCOLAPI_CONFIG"],
+            config_name="seqcol"
+        )
+        super(SeqColConf, self).__init__(entries, filepath, yamldata, writable)
 
 
-def fasta_obj_to_seqcol(
-    fa_object: pyfaidx.Fasta,
-    verbose: bool = True,
-    digest_function: Callable[[str], str] = trunc512_digest,
-) -> dict:
+class SeqColHenge(henge.Henge):
     """
-    Given a fasta object, return a CSC (Canonical Sequence Collection object)
-    """
-    # CSC = SeqColArraySet
-    # Or maybe should be "Level 1 SC"
-
-    CSC = {"lengths": [], "names": [], "sequences": [], "sorted_name_length_pairs": []}
-    seqs = fa_object.keys()
-    nseqs = len(seqs)
-    print(f"Found {nseqs} chromosomes")
-    i = 1
-    for k in fa_object.keys():
-        if verbose:
-            print(f"Processing ({i} of {nseqs}) {k}...")
-        seq = str(fa_object[k])
-        seq_length = len(seq)
-        seq_name = fa_object[k].name
-        seq_digest = digest_function(seq.upper())
-        snlp = {"length": seq_length, "name": seq_name}  # sorted_name_length_pairs
-        snlp_digest = digest_function(canonical_str(snlp))
-        CSC["lengths"].append(seq_length)
-        CSC["names"].append(seq_name)
-        CSC["sorted_name_length_pairs"].append(snlp_digest)
-        CSC["sequences"].append(seq_digest)
-        i += 1
-    CSC["sorted_name_length_pairs"].sort()
-    return CSC
-
-
-def build_sorted_name_length_pairs(obj: dict, digest_function):
-    """Builds the sorted_name_length_pairs attribute, which corresponds to the coordinate system"""
-    sorted_name_length_pairs = []
-    for i in range(len(obj["names"])):
-        sorted_name_length_pairs.append({"length": obj["lengths"][i], "name": obj["names"][i]})
-    nl_digests = []
-    for i in range(len(sorted_name_length_pairs)):
-        nl_digests.append(digest_function(canonical_str(sorted_name_length_pairs[i])))
-
-    nl_digests.sort()
-    return nl_digests
-
-
-def compare_seqcols(A: SeqCol, B: SeqCol):
-    """
-    Workhorse comparison function
-
-    @param A Sequence collection A
-    @param B Sequence collection B
-    @return dict Following formal seqcol specification comparison function return value
-    """
-    validate_seqcol(A)  # First ensure these are the right structure
-    validate_seqcol(B)
-
-    all_keys = list(A.keys()) + list(set(B.keys()) - set(list(A.keys())))
-    result = {}
-    return_obj = {
-        "arrays": {"a-only": [], "b-only": [], "a-and-b": []},
-        "elements": {
-            "total": {"a": len(A["lengths"]), "b": len(B["lengths"])},
-            "a-and-b": {},
-            "a-and-b-same-order": {},
-        },
-    }
-
-    for k in all_keys:
-        _LOGGER.info(k)
-        if k not in A:
-            result[k] = {"flag": -1}
-            return_obj["arrays"]["b-only"].append(k)
-        elif k not in B:
-            return_obj["arrays"]["a-only"].append(k)
-        else:
-            return_obj["arrays"]["a-and-b"].append(k)
-            res = _compare_elements(A[k], B[k])
-            return_obj["elements"]["a-and-b"][k] = res["a-and-b"]
-            return_obj["elements"]["a-and-b-same-order"][k] = res["a-and-b-same-order"]
-    return return_obj
-
-
-def _compare_elements(A: list, B: list):
-    """
-    Compare elements between two arrays. Helper function for individual elements used by workhorse compare_seqcols function
+    Extension of henge that accommodates collections of sequences.
     """
 
-    A_filtered = list(filter(lambda x: x in B, A))
-    B_filtered = list(filter(lambda x: x in A, B))
-    A_count = len(A_filtered)
-    B_count = len(B_filtered)
-    overlap = min(len(A_filtered), len(B_filtered))  # counts duplicates
+    def __init__(
+        self,
+        database={},
+        schemas=None,
+        henges=None,
+        checksum_function=sha512t24u_digest,
+    ):
+        """
+        A user interface to insert and retrieve decomposable recursive unique
+        identifiers (DRUIDs).
 
-    if A_count + B_count < 1:
-        # order match requires at least 2 matching elements
-        order = None
-    elif not (A_count == B_count == overlap):
-        # duplicated matches means order match is undefined
-        order = None
-    else:
-        order = A_filtered == B_filtered
-    return {"a-and-b": overlap, "a-and-b-same-order": order}
+        :param dict database: Dict-like lookup database with sequences
+            and hashes
+        :param dict schemas: One or more jsonschema schemas describing the
+            data types stored by this Henge
+        :param function(str) -> str checksum_function: Default function to
+            handle the digest of the
+            serialized items stored in this henge.
+        """
+        super(SeqColHenge, self).__init__(
+            database=database,
+            schemas=schemas or INTERNAL_SCHEMAS,
+            henges=henges,
+            checksum_function=checksum_function,
+        )
+        _LOGGER.info("Initializing SeqColHenge")
 
+    def load_fasta(self, fa_file, skip_seq=False, topology_default="linear"):
+        """
+        Load a sequence collection into the database
 
-def seqcol_digest(seqcol_obj: SeqCol, schema: dict = None) -> str:
-    """
-    Given a canonical sequence collection, compute its digest.
+        :param str fa_file: path to the FASTA file to parse and load
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param str topology_default: the default topology assigned to
+            every sequence
+        """
+        # TODO: any systematic way infer topology from a FASTA file?
+        if topology_default not in KNOWN_TOPOS:
+            raise ValueError(
+                f"Invalid topology ({topology_default}). " f"Choose from: {','.join(KNOWN_TOPOS)}"
+            )
+        fa_object = parse_fasta(fa_file)
+        aslist = []
+        for k in fa_object.keys():
+            seq = str(fa_object[k])
+            aslist.append(
+                {
+                    NAME_KEY: k,
+                    LEN_KEY: len(seq),
+                    TOPO_KEY: topology_default,
+                    SEQ_KEY: {"" if skip_seq else SEQ_KEY: seq},
+                }
+            )
+        collection_checksum = self.insert(aslist, ASL_NAME)
+        _LOGGER.debug(f"Loaded {ASL_NAME}: {aslist}")
+        return collection_checksum, aslist
 
-    :param dict seqcol_obj: Dictionary representation of a canonical sequence collection object
-    :param dict schema: Schema defining the inherent attributes to digest
-    :return str: The sequence collection digest
-    """
+    def load_fasta2(self, fa_file, skip_seq=False, topology_default="linear"):
+        """
+        Load a sequence collection into the database
 
-    validate_seqcol(seqcol_obj)
-    # Step 1a: Remove any non-inherent attributes,
-    # so that only the inherent attributes contribute to the digest.
-    seqcol_obj2 = {}
-    if schema:
-        for k in schema["inherent"]:
-            # Step 2: Apply RFC-8785 to canonicalize the value
-            # associated with each attribute individually.
-            seqcol_obj2[k] = canonical_str(seqcol_obj[k])
-    else:  # no schema provided, so assume all attributes are inherent
-        for k in seqcol_obj:
-            seqcol_obj2[k] = canonical_str(seqcol_obj[k])
-    # Step 3: Digest each canonicalized attribute value
-    # using the GA4GH digest algorithm.
+        :param str fa_file: path to the FASTA file to parse and load
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param bool skip_seq: whether to disregard the actual sequences,
+            load just the names and lengths and topology
+        :param str topology_default: the default topology assigned to
+            every sequence
+        """
+        # TODO: any systematic way infer topology from a FASTA file?
+        _LOGGER.info("Loading fasta file...")
+        fa_object = parse_fasta(fa_file)
+        aslist = []
+        for k in fa_object.keys():
+            seq = str(fa_object[k])
+            _LOGGER.info("Loading key: {k} / Length: {l}...".format(k=k, l=len(seq)))
+            aslist.append(
+                {
+                    NAME_KEY: k,
+                    LEN_KEY: len(seq),
+                    TOPO_KEY: topology_default,
+                    SEQ_KEY: "" if skip_seq else seq,
+                }
+            )
+        _LOGGER.info("Inserting into database...")
+        collection_checksum = self.insert(aslist, "RawSeqCol")
+        _LOGGER.debug(f"Loaded {ASL_NAME}: {aslist}")
+        return collection_checksum, aslist
 
-    seqcol_obj3 = {}
-    for attribute in seqcol_obj2:
-        seqcol_obj3[attribute] = trunc512_digest(seqcol_obj2[attribute])
-    # print(json.dumps(seqcol_obj3, indent=2))  # visualize the result
+    def compare_digests(self, digestA, digestB):
+        A = self.retrieve(digestA, reclimit=1)
+        B = self.retrieve(digestB, reclimit=1)
+        # _LOGGER.info(A)
+        # _LOGGER.info(B)
+        return compare_seqcols(A, B)
 
-    # Step 4: Apply RFC-8785 again to canonicalize the JSON
-    # of new seqcol object representation.
+    def retrieve(self, druid, reclimit=None, raw=False):
+        try:
+            return super(SeqColHenge, self).retrieve(druid, reclimit, raw)
+        except henge.NotFoundException as e:
+            _LOGGER.debug(e)
+            raise e
+            try:
+                return self.refget(druid)
+            except Exception as e:
+                _LOGGER.debug(e)
+                raise e
+                return henge.NotFoundException(
+                    "{} not found in database, or in refget.".format(druid)
+                )
 
-    seqcol_obj4 = canonical_str(seqcol_obj3)
+    def load_fasta_from_refgenie(self, rgc, refgenie_key):
+        """
+        @param rgc RefGenConf object
+        @param refgenie_key key of genome to load
+        """
+        filepath = rgc.seek(refgenie_key, "fasta")
+        return self.load_fasta_from_filepath(filepath)
 
-    # Step 5: Digest the final canonical representation again.
-    seqcol_digest = trunc512_digest(seqcol_obj4)
-    return seqcol_digest
+    def load_fasta_from_filepath(self, filepath):
+        """
+        @param filepath Path to fasta file
+        """
+        fa_object = parse_fasta(filepath)
+        SCAS = fasta_obj_to_seqcol(fa_object, digest_function=self.checksum_function)
+        digest = self.insert(SCAS, "SeqColArraySet", reclimit=1)
+        return {
+            "fa_file": filepath,
+            "fa_object": fa_object,
+            "SCAS": SCAS,
+            "digest": digest,
+        }
+
+    def load_from_chromsizes(self, chromsizes):
+        """
+        @param chromsizes Path to chromsizes file
+        """
+        SCAS = chrom_sizes_to_seqcol(
+            chromsizes, digest_function=self.checksum_function
+        )
+        digest = self.insert(SCAS, "SeqColArraySet", reclimit=1)
+        return {
+            "chromsizes_file": chromsizes,
+            "SCAS": SCAS,
+            "digest": digest,
+        }
+
+    def load_multiple_fastas(self, fasta_dict):
+        """
+        Wrapper for load_fasta_from_filepath
+
+        @param fasta_list
+        """
+        results = {}
+        for name in fasta_dict.keys():
+            path = fasta_dict[name]["fasta"]
+            print(f"Processing fasta '{name}'' at path '{path}'...")
+            results[name] = self.load_fasta_from_filepath(path)
+        return results

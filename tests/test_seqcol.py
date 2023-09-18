@@ -3,7 +3,7 @@ import os
 import pytest
 import seqcol
 
-# from seqcol import SeqColClient, validate_seqcol, compare
+# from seqcol import SeqColHenge, validate_seqcol, compare
 # from seqcol.const import *
 
 DEMO_FILES = [
@@ -29,16 +29,16 @@ SNLP_TESTS = [
 class TestGeneral:
     def test_no_schemas_required(self):
         """
-        In contrast to the generic Henge object, SeqColClient does not
+        In contrast to the generic Henge object, SeqColHenge does not
         require schemas as input, they are predefined in the constructor
         """
-        assert isinstance(seqcol.SeqColClient(database={}), seqcol.SeqColClient)
+        assert isinstance(seqcol.SeqColHenge(database={}), seqcol.SeqColHenge)
 
 
 class TestFastaInserting:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_fasta_loading_works(self, fasta_name, fa_root):
-        scc = seqcol.SeqColClient(database={})
+        scc = seqcol.SeqColHenge(database={})
         f = os.path.join(fa_root, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         res = scc.load_fasta(f)
@@ -48,7 +48,7 @@ class TestFastaInserting:
 class TestRetrieval:
     @pytest.mark.parametrize("fasta_name", DEMO_FILES)
     def test_retrieval_works(self, fasta_name, fa_root):
-        scc = seqcol.SeqColClient(database={})
+        scc = seqcol.SeqColHenge(database={})
         f = os.path.join(fa_root, fasta_name)
         print("Fasta file to be loaded: {}".format(f))
         d, asds = scc.load_fasta(f)
@@ -60,7 +60,7 @@ class TestRetrieval:
 
 def check_comparison(fasta1, fasta2, expected_comparison):
     print(f"Comparison: Fasta1: {fasta1} vs Fasta2: {fasta2}. Expected: {expected_comparison}")
-    scc = seqcol.SeqColClient(database={})
+    scc = seqcol.SeqColHenge(database={})
     d = scc.load_fasta_from_filepath(fasta1)
     d2 = scc.load_fasta_from_filepath(fasta2)
     with open(expected_comparison) as fp:
