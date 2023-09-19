@@ -130,6 +130,7 @@ def chrom_sizes_to_seqcol(
         CSC["names"].append(seq_name)
         CSC["sequences"].append(ga4gh_digest)
         CSC["sorted_name_length_pairs"].append(snlp_digest)
+    CSC["sorted_name_length_pairs"].sort()
     return CSC
 
 
